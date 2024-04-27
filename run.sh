@@ -1,8 +1,8 @@
 #!/bin/bash
 #PBS -N gpt2
-#PBS -l select=1:ncpus=1:mem=10gb:scratch_local=20gb:ngpus=1:gpu_cap=compute_70:gpu_mem=16gb
+#PBS -l select=1:ncpus=1:mem=20gb:scratch_local=100gb:ngpus=1:gpu_cap=compute_70:gpu_mem=12gb
 #PBS -q gpu
-#PBS -l walltime=12:00:00
+#PBS -l walltime=18:00:00
 #PBS -M namlh201@gmail.com
 
 HOMEDIR=/storage/plzen1/home/namlh201
@@ -22,15 +22,6 @@ test -n "$SCRATCHDIR" || { echo >&2 "Variable SCRATCHDIR is not set!"; exit 1; }
 # if the copy operation fails, issue error message and exit
 cp -r $DATADIR $SCRATCHDIR || { echo >&2 "Error while copying input file(s)!"; exit 2; }
 
-
-# move into scratch directory
-# cd $SCRATCHDIR/luun
-
-# run in singularity image
-# singularity run \
-#     -B $SCRATCHDIR:$SCRATCHDIR \
-#     --nv /cvmfs/singularity.metacentrum.cz/NGC/PyTorch\:23.08-py3.SIF \
-#     bash $SCRATCHDIR/luun/train.sh
 
 cd $SCRATCHDIR/npfl087
 $ENVDIR/bin/python main.py
