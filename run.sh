@@ -9,7 +9,7 @@ HOMEDIR=/storage/plzen1/home/namlh201
 ENVDIR=$HOMEDIR/miniconda3/envs/npfl087
 
 # define a DATADIR variable: directory where the input files are taken from and where output will be copied to
-DATADIR=$HOMEDIR/npfl087/src
+DATADIR=$HOMEDIR/npfl087
 
 # append a line to a file "jobs_info.txt" containing the ID of the job, the hostname of node it is run on and the path to a scratch directory
 # this information helps to find a scratch directory in case the job fails and you need to remove the scratch directory manually
