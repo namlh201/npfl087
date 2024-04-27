@@ -32,13 +32,14 @@ cp -r $DATADIR $SCRATCHDIR || { echo >&2 "Error while copying input file(s)!"; e
 #     --nv /cvmfs/singularity.metacentrum.cz/NGC/PyTorch\:23.08-py3.SIF \
 #     bash $SCRATCHDIR/luun/train.sh
 
+cd $SCRATCHDIR/npfl087
 $ENVDIR/bin/python main.py
 
 JOB_ID=$(echo ${PBS_JOBID:0:8})
 
 # copy back to DATADIR
 mkdir $DATADIR/$JOB_ID
-cp -r $SCRATCHDIR/models $DATADIR/$JOB_ID
+cp -r $SCRATCHDIR/npfl087/models $DATADIR/$JOB_ID
 
 # clean the SCRATCH directory
 clean_scratch%
