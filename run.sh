@@ -1,6 +1,6 @@
 #!/bin/bash
 #PBS -N gpt2
-#PBS -l select=1:ncpus=1:mem=20gb:scratch_local=100gb:ngpus=1:gpu_cap=compute_70:gpu_mem=16gb
+#PBS -l select=1:ncpus=1:mem=64gb:scratch_local=100gb:ngpus=1:gpu_cap=compute_70:gpu_mem=16gb
 #PBS -q gpu
 #PBS -l walltime=18:00:00
 #PBS -M namlh201@gmail.com
