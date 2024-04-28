@@ -1,5 +1,4 @@
 import os
-from itertools import groupby
 
 os.environ['HF_HOME'] = os.getcwd() + '/checkpoints'
 os.environ['HF_TOKEN'] = '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'
@@ -7,8 +6,8 @@ os.environ['HF_TOKEN'] = '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'
 # import numpy as np
 import torch
 from torch import nn
-import torch.nn.functional as F
-from transformers import AutoTokenizer, HubertModel, GPT2LMHeadModel, HubertForCTC, HubertConfig, AutoModelForCausalLM, BitsAndBytesConfig
+# import torch.nn.functional as F
+from transformers import AutoTokenizer, GPT2LMHeadModel, GPT2Tokenizer, HubertForCTC, AutoModelForCausalLM, BitsAndBytesConfig
 from peft import LoraConfig, get_peft_model
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -17,18 +16,13 @@ def get_tokenizer(decoder: str='gpt-2') -> nn.Module:
     SPECIAL_TOKENS = ['<|audio|>', '<|transcript|>', '<|translation|>']
 
     if decoder == 'gpt-2':
-        tokenizer = AutoTokenizer.from_pretrained("openai-community/gpt2")
+        tokenizer = GPT2Tokenizer.from_pretrained("openai-community/gpt2")
     elif decoder == 'gemma':
         tokenizer = AutoTokenizer.from_pretrained('google/gemma-2b', token=os.environ['HF_TOKEN'])
 
-    # print(tokenizer)
-
     tokenizer.add_special_tokens({
-        # 'pad_token': '<|pad|>',
         'additional_special_tokens': SPECIAL_TOKENS
     })
-
-    # tokenizer.vocab_size = len(tokenizer.vocab)
 
     return tokenizer
 
@@ -229,6 +223,9 @@ class GPT2Decoder(nn.Module):
 
     def forward(self, **kwargs):
         return self.decoder(**kwargs)
+    
+    def generate(self, **kwargs):
+        return self.decoder.generate(**kwargs)
 
 class GemmaDecoder(nn.Module):
     device = torch.device(device)

@@ -1,31 +1,41 @@
 import os
+import argparse
+import warnings
+warnings.filterwarnings('ignore', category=UserWarning, message='TypedStorage is deprecated')
 
 import torch.utils
 import torch.utils.data
+from torchaudio.functional import edit_distance
 
 os.environ['HF_HOME'] = os.getcwd() + '/checkpoints'
 
-# from datasets import Dataset, Audio
-# import numpy as np
+from sacrebleu.metrics import BLEU, CHRF, TER
 import torch
 from torch import nn
-# import torch.nn.functional as F
-from torch.utils.data import DataLoader
-from torchaudio.datasets import LIBRISPEECH as LibriSpeech
 from transformers import AutoFeatureExtractor, AutoTokenizer
 from transformers import get_cosine_schedule_with_warmup
+from transformers import logging
 from tqdm import tqdm
+
+logging.set_verbosity_error()
 
 from block import Encoder, GPT2Decoder, get_tokenizer
 from data import DataLoader
+from utils import get_dataset
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-# SAMPLE_RATE = 16_000
-DATA_DIR = os.path.join(os.getcwd(), 'data')
+parser = argparse.ArgumentParser()
+parser.add_argument('--batch_size', default=1, type=int, help='Batch size.')
+parser.add_argument('--epochs', default=10, type=int, help='Number of epochs.')
+parser.add_argument('--dataset', default='MUSTC', type=str, choices=['MUSTC', 'LIBRISPEECH'], required=True, help='Dataset name.')
+parser.add_argument('--direction', default='en-cs', type=str, choices=['en-en', 'en-cs'], required=True, help='Translation direction.')
+parser.add_argument('--train_subset', default='train', type=str, required=True, help='Train subset.')
+parser.add_argument('--dev_subset', default='dev', type=str, required=True, help='Dev subset.')
+parser.add_argument('--decoder', default='gpt-2', type=str, choices=['gpt-2', 'gemma'], required=True, help='Decoder name.')
+parser.add_argument('--train', default=False, action='store_true', help='Train or Eval.')
 
-BATCH_SIZE = 1
-NUM_EPOCHS = 10
+args = parser.parse_args()
 
 def train(
     encoder: nn.Module,
@@ -38,18 +48,21 @@ def train(
     num_epochs: int,
     special_token_ids: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
 ) -> None:
+    encoder.train()
+    decoder.train()
+
     for epoch in range(num_epochs):
         mean_loss = 0.0
 
         print(f'Epoch #{epoch + 1}:')
-        for audio_feats, transcripts in tqdm(train_loader):
+        for audio_feats, transcripts, translations in tqdm(train_loader):
             loss = train_step(
                 encoder,
                 decoder,
                 tokenizer,
                 audio_feats=audio_feats,
                 transcripts=transcripts,
-                translations=transcripts,
+                translations=translations,
                 special_token_ids=special_token_ids
             )
 
@@ -63,6 +76,15 @@ def train(
         mean_loss = mean_loss / len(train_loader)
 
         print(f'Loss = {mean_loss}')
+
+        torch.save(
+            encoder.project.state_dict(),
+            os.path.join('models', f'{args.dataset}_{args.direction}', f'hubert_to_{args.decoder}_projection_e{epoch + 1}.pth')
+        )
+        torch.save(
+            decoder.state_dict(),
+            os.path.join('models', f'{args.dataset}_{args.direction}', f'{args.decoder}_e{epoch + 1}.pth')
+        )
 
 
 def train_step(
@@ -91,7 +113,7 @@ def train_step(
         [torch.tensor(transcript) for transcript in transcripts],
         batch_first=True
     ).to(device)
-    embeded_transcripts = embed(padded_transcripts).view((BATCH_SIZE, padded_transcripts.shape[1], -1))
+    embeded_transcripts = embed(padded_transcripts).view((args.batch_size, padded_transcripts.shape[1], -1))
 
     translations = list(
         map(
@@ -103,12 +125,12 @@ def train_step(
         [torch.tensor(translation) for translation in translations],
         batch_first=True
     ).to(device)
-    embeded_translations = embed(padded_translations).view((BATCH_SIZE, padded_translations.shape[1], -1))
+    embeded_translations = embed(padded_translations).view((args.batch_size, padded_translations.shape[1], -1))
 
-    embeded_audio_token = embed(audio_tok_id).view((BATCH_SIZE, 1, -1))
-    embeded_transcript_token = embed(transcript_tok_id).view((BATCH_SIZE, 1, -1))
-    embeded_translation_token = embed(translation_tok_id).view((BATCH_SIZE, 1, -1))
-    embeded_eot_token = embed(eot_tok_id).view((BATCH_SIZE, 1, -1))
+    embeded_audio_token = embed(audio_tok_id).view((args.batch_size, 1, -1))
+    embeded_transcript_token = embed(transcript_tok_id).view((args.batch_size, 1, -1))
+    embeded_translation_token = embed(translation_tok_id).view((args.batch_size, 1, -1))
+    embeded_eot_token = embed(eot_tok_id).view((args.batch_size, 1, -1))
 
     input_feats = torch.cat(
         (
@@ -132,8 +154,8 @@ def train_step(
         translations[0] + \
         [eot_tok_id]
     ]
-    translation_attention_masks = torch.tensor(translation_attention_masks).view((BATCH_SIZE, -1)).to(device)
-    translation_labels = torch.tensor(translation_labels).view((BATCH_SIZE, -1)).to(device)
+    translation_attention_masks = torch.tensor(translation_attention_masks).view((args.batch_size, -1)).to(device)
+    translation_labels = torch.tensor(translation_labels).view((args.batch_size, -1)).to(device)
 
     translation_output = decoder(inputs_embeds=input_feats, attention_mask=translation_attention_masks, labels=translation_labels)
 
@@ -153,17 +175,200 @@ def train_step(
 #     translations: list[str],
 #     special_token_ids: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
 # ) -> None:
-#     pass
+#     encoder.eval()
+#     decoder.eval()
+
+#     audio_tok_id, transcript_tok_id, translation_tok_id, eot_tok_id = special_token_ids
+#     embed = decoder.get_input_embeddings()
+
+#     audio_feats = audio_feats.to(device)
+
+#     audio_hidden_feats = encoder(audio_feats)
+
+#     encoded_transcripts = list(
+#         map(
+#             lambda transcript: tokenizer(transcript)['input_ids'],
+#             transcripts
+#         )
+#     )
+#     padded_transcripts = nn.utils.rnn.pad_sequence(
+#         [torch.tensor(transcript) for transcript in encoded_transcripts],
+#         batch_first=True
+#     ).to(device)
+#     embeded_transcripts = embed(padded_transcripts).view((args.batch_size, padded_transcripts.shape[1], -1))
+
+#     encoded_translations = list(
+#         map(
+#             lambda translation: tokenizer(translation)['input_ids'],
+#             translations
+#         )
+#     )
+#     padded_translations = nn.utils.rnn.pad_sequence(
+#         [torch.tensor(translation) for translation in encoded_translations],
+#         batch_first=True
+#     ).to(device)
+#     embeded_translations = embed(padded_translations).view((args.batch_size, padded_translations.shape[1], -1))
+
+#     embeded_audio_token = embed(audio_tok_id).view((args.batch_size, 1, -1))
+#     embeded_transcript_token = embed(transcript_tok_id).view((args.batch_size, 1, -1))
+#     embeded_translation_token = embed(translation_tok_id).view((args.batch_size, 1, -1))
+#     embeded_eot_token = embed(eot_tok_id).view((args.batch_size, 1, -1))
+
+#     input_feats = torch.cat(
+#         (
+#             embeded_audio_token, audio_hidden_feats, \
+#             embeded_transcript_token, embeded_transcripts, \
+#             embeded_translation_token, embeded_translations, \
+#             embeded_eot_token
+#         ),
+#         dim=1
+#     )
+#     input_feats = input_feats.to(device)
+
+#     translation_attention_masks = [
+#         [1] * input_feats.shape[0]
+#     ]
+#     translation_labels = [
+#         [-100] * (embeded_audio_token.shape[1] + audio_hidden_feats.shape[1] + embeded_transcript_token.shape[1]) + \
+#         # embeded_transcripts.shape[1] + embeded_translation_token.shape[1]) + \
+#         encoded_transcripts[0] + \
+#         [translation_tok_id] + \
+#         encoded_translations[0] + \
+#         [eot_tok_id]
+#     ]
+#     translation_attention_masks = torch.tensor(translation_attention_masks).view((args.batch_size, -1)).to(device)
+#     translation_labels = torch.tensor(translation_labels).view((args.batch_size, -1)).to(device)
+
+#     translation_output = decoder(inputs_embeds=input_feats, attention_mask=translation_attention_masks, labels=translation_labels)
+
+#     translation_loss = translation_output.loss
+
+#     translation_tokens = translation_output.logits.detach().argmax(dim=-1)
+#     translation_tokens = torch.roll(translation_tokens, 1)
+
+#     translation_start_idx = embeded_audio_token.shape[1] + audio_hidden_feats.shape[1] + \
+#         embeded_transcript_token.shape[1] + embeded_transcripts.shape[1] + \
+#         embeded_translation_token.shape[1]
+
+#     translation_tokens = translation_tokens[:, translation_start_idx:-1].squeeze()
+#     golden_tokens = padded_translations[0]
+
+#     # print(translation_tokens, len(translation_tokens))
+#     # print(golden_tokens, len(golden_tokens))
+
+#     # assert len(translation_tokens) == len(golden_tokens), f'{len(translation_tokens)}, {len(golden_tokens)}'
+
+#     translation = tokenizer.decode(translation_tokens, skip_special_tokens=True)
+#     golden = translations[0]
+
+#     wer = edit_distance(translation, golden) / len(golden)
+
+#     loss = translation_loss.item()
+
+#     return loss, translation, wer
 
 
-def main():
-    librispeech_train = LibriSpeech(DATA_DIR, url='train-clean-100', download=True)
-    # librispeech_dev = LibriSpeech(DATA_DIR, url='dev-clean', download=True)
+def generate_one(
+    encoder: nn.Module,
+    decoder: nn.Module,
+    tokenizer: AutoTokenizer,
+    audio_feats: torch.Tensor,
+    # transcripts: list[str],
+    # translations: list[str],
+    special_token_ids: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
+) -> None:
+    encoder.eval()
+    decoder.eval()
 
+    # tokenizer.pad_token_id = tokenizer.eos_token_id
+
+    audio_tok_id, transcript_tok_id, _, _ = special_token_ids
+    embed = decoder.get_input_embeddings()
+
+    audio_feats = audio_feats.to(device)
+
+    audio_hidden_feats = encoder(audio_feats)
+
+    # encoded_transcripts = list(
+    #     map(
+    #         lambda transcript: tokenizer(transcript)['input_ids'],
+    #         transcripts
+    #     )
+    # )
+    # padded_transcripts = nn.utils.rnn.pad_sequence(
+    #     [torch.tensor(transcript) for transcript in encoded_transcripts],
+    #     batch_first=True
+    # ).to(device)
+    # embeded_transcripts = embed(padded_transcripts).view((BATCH_SIZE, padded_transcripts.shape[1], -1))
+
+    # encoded_translations = list(
+    #     map(
+    #         lambda translation: tokenizer(translation)['input_ids'],
+    #         translations
+    #     )
+    # )
+    # padded_translations = nn.utils.rnn.pad_sequence(
+    #     [torch.tensor(translation) for translation in encoded_translations],
+    #     batch_first=True
+    # ).to(device)
+    # embeded_translations = embed(padded_translations).view((BATCH_SIZE, padded_translations.shape[1], -1))
+
+    embeded_audio_token = embed(audio_tok_id).view((args.batch_size, 1, -1))
+    embeded_transcript_token = embed(transcript_tok_id).view((args.batch_size, 1, -1))
+    # embeded_translation_token = embed(translation_tok_id).view((BATCH_SIZE, 1, -1))
+    # embeded_eot_token = embed(eot_tok_id).view((BATCH_SIZE, 1, -1))
+
+    input_feats = torch.cat(
+        (
+            embeded_audio_token, audio_hidden_feats, \
+            embeded_transcript_token
+            # embeded_transcripts, \
+            # embeded_translation_token, embeded_translations, \
+            # embeded_eot_token
+        ),
+        dim=1
+    )
+    input_feats = input_feats.to(device)
+
+    attention_masks = torch.ones((input_feats.shape[0], input_feats.shape[1]))
+    attention_masks = attention_masks.to(device)
+
+    pred_transcripts = decoder.generate(
+        inputs_embeds=input_feats,
+        attention_mask=attention_masks,
+        num_beams=2,
+        max_length=1024,  
+        repetition_penalty=2.5, 
+        length_penalty=1.0, 
+        early_stopping=True,
+        pad_token_id=tokenizer.eos_token_id
+    )
+
+    pred_transcripts = pred_transcripts.squeeze()
+
+    # print('input length =', input_feats.shape[1])
+    # print(pred_transcripts, pred_transcripts.shape)
+    # print(tokenizer.decode(pred_transcripts[0]))
+
+    translation_start_idx = pred_transcripts.tolist().index(tokenizer.get_added_vocab()['<|translation|>'])
+
+    translation_tokens = pred_transcripts[translation_start_idx:-1].squeeze()
+    # golden_tokens = padded_translations[0]
+
+    translation = tokenizer.decode(translation_tokens, skip_special_tokens=True)
+    # golden = translations[0]
+
+    # wer = edit_distance(translation, golden) / len(golden)
+
+    # loss = translation_loss.item()
+
+    return translation
+
+
+def main(args: argparse.Namespace):
     feature_extractor = AutoFeatureExtractor.from_pretrained("facebook/hubert-large-ls960-ft")
-    # sampling_rate = feature_extractor.sampling_rate
 
-    tokenizer = get_tokenizer('gpt-2')
+    tokenizer = get_tokenizer(args.decoder)
     # print(tokenizer)
 
     decoder = GPT2Decoder(tokenizer).to(device)
@@ -171,171 +376,107 @@ def main():
 
     encoder = Encoder(dec_hidden_size).to(device)
 
-    train_loader = DataLoader(librispeech_train, feature_extractor, batch_size=BATCH_SIZE)
-    # dev_loader = DataLoader(librispeech_dev, feature_extractor, batch_size=BATCH_SIZE)
-
-    optimizer = torch.optim.Adam(
-        list(encoder.project.parameters()) + list(decoder.parameters()),
-        lr=0.001,
-    )
-    lr_scheduler = get_cosine_schedule_with_warmup(optimizer, 10, NUM_EPOCHS * len(train_loader))
-
-    # lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR
-
-    encoder.train()
-    decoder.train()
-
-    # embed = decoder.get_input_embeddings()
-
-    # i = 0
-
     audio_tok_id = tokenizer('<|audio|>')['input_ids'][0]
-    audio_tok_id = torch.full((BATCH_SIZE, ), audio_tok_id).to(device)
+    audio_tok_id = torch.full((args.batch_size, ), audio_tok_id).to(device)
 
     transcript_tok_id = tokenizer('<|transcript|>')['input_ids'][0]
-    transcript_tok_id = torch.full((BATCH_SIZE, ), transcript_tok_id).to(device)
+    transcript_tok_id = torch.full((args.batch_size, ), transcript_tok_id).to(device)
 
     translation_tok_id = tokenizer('<|translation|>')['input_ids'][0]
-    translation_tok_id = torch.full((BATCH_SIZE, ), translation_tok_id).to(device)
+    translation_tok_id = torch.full((args.batch_size, ), translation_tok_id).to(device)
 
     eot_tok_id = tokenizer('<|endoftext|>')['input_ids'][0]
-    eot_tok_id = torch.full((BATCH_SIZE, ), eot_tok_id).to(device)
+    eot_tok_id = torch.full((args.batch_size, ), eot_tok_id).to(device)
 
-    train(
-        encoder,
-        decoder,
-        tokenizer,
-        optimizer,
-        lr_scheduler,
-        train_loader=train_loader,
-        dev_loader=None,
-        num_epochs=NUM_EPOCHS,
-        special_token_ids=(audio_tok_id, transcript_tok_id, translation_tok_id, eot_tok_id)
-    )
+    if args.train:
+        librispeech_train = get_dataset(name=args.dataset, direction=args.direction, subset=args.train_subset)
+        train_loader = DataLoader(librispeech_train, feature_extractor, batch_size=args.batch_size)
 
-    os.makedirs('models', exist_ok=True)
-    torch.save(encoder.project.state_dict(), os.path.join('models', 'hubert_to_gpt2_projection.pth'))
-    torch.save(decoder.state_dict(), os.path.join('models', 'gpt2.pth'))
+        optimizer = torch.optim.Adam(
+            list(encoder.project.parameters()) + list(decoder.parameters()),
+            lr=0.001,
+        )
+        lr_scheduler = get_cosine_schedule_with_warmup(optimizer, 10, args.epochs * len(train_loader))
 
-    # for audio_feats, transcripts in tqdm(loader):
-    #     # print(waveforms)
+        encoder.train()
+        decoder.train()
 
-    #     # feats = feature_extractor(waveforms[0], sampling_rate=sampling_rate, return_tensors='pt').input_values
+        os.makedirs('models', exist_ok=True)
+        os.makedirs(os.path.join('models', f'{args.dataset}_{args.direction}'), exist_ok=True)
 
-    #     # feats = feats.to(device)
-    #     # print(feats, feats.shape)
+        train(
+            encoder,
+            decoder,
+            tokenizer,
+            optimizer,
+            lr_scheduler,
+            train_loader=train_loader,
+            dev_loader=None,
+            num_epochs=args.epochs,
+            special_token_ids=(audio_tok_id, transcript_tok_id, translation_tok_id, eot_tok_id)
+        )
 
-    #     audio_feats = audio_feats.to(device)
-    #     # audio_feat_masks = audio_feat_masks.to(device)
+        torch.save(
+            encoder.project.state_dict(),
+            os.path.join('models', f'{args.dataset}_{args.direction}', f'hubert_to_{args.decoder}_projection.pth')
+        )
+        torch.save(
+            decoder.state_dict(),
+            os.path.join('models', f'{args.dataset}_{args.direction}', f'{args.decoder}.pth')
+        )
+    else:
+        librispeech_dev = get_dataset(name=args.dataset, direction=args.direction, subset=args.dev_subset)
+        dev_loader = DataLoader(librispeech_dev, feature_extractor, batch_size=args.batch_size)
 
-    #     audio_hidden_feats = encoder(audio_feats)
-    #     # audio_hidden_feats = encoder(audio_feats, audio_feat_masks)
+        encoder.project.load_state_dict(
+            torch.load(
+                os.path.join('models', f'{args.dataset}_{args.direction}', f'hubert_to_{args.decoder}_projection.pth'),
+                map_location=encoder.device
+            )
+        )
+        decoder.load_state_dict(
+            torch.load(
+                os.path.join('models', f'{args.dataset}_{args.direction}', f'{args.decoder}.pth'),
+                map_location=decoder.device
+            )
+        )
 
-    #     # print(ctc_feats, ctc_feats.shape)
+        bleu = BLEU()
+        chrf = CHRF()
+        ter = TER()
 
-    #     transcripts = list(
-    #         map(
-    #             lambda transcript: tokenizer(transcript)['input_ids'],
-    #             transcripts
-    #         )
-    #     )
-    #     translations = transcripts
-    #     padded_transcripts = nn.utils.rnn.pad_sequence(
-    #         [torch.tensor(transcript) for transcript in transcripts],
-    #         batch_first=True
-    #     ).to(device)
-    #     embeded_transcripts = embed(padded_transcripts).view((BATCH_SIZE, padded_transcripts.shape[1], -1))
-    #     embeded_translations = embeded_transcripts
+        for audio_feats, transcripts, translations in tqdm(dev_loader):
+            candidate = generate_one(
+                encoder,
+                decoder,
+                tokenizer,
+                audio_feats=audio_feats,
+                # transcripts=transcripts,
+                # translations=translations,
+                special_token_ids=(audio_tok_id, transcript_tok_id, translation_tok_id, eot_tok_id)
+            )
 
-    #     # audio_tok_id = tokenizer('<|audio|>')['input_ids'][0]
-    #     # audio_tok_id = torch.full((BATCH_SIZE, ), audio_tok_id).to(device)
-    #     embeded_audio_token = embed(audio_tok_id).view((BATCH_SIZE, 1, -1))
+            # score = {
+            #     'wer': edit_distance(candidate, translations[0]) / len(translations[0]),
+            #     'bleu': bleu.corpus_score([candidate], [translations]).score,
+            #     'chrf': chrf.corpus_score([candidate], [translations]).score,
+            #     'ter': ter.corpus_score([candidate], [translations]).score,
+            # }
 
-    #     # transcript_tok_id = tokenizer('<|transcript|>')['input_ids'][0]
-    #     # transcript_tok_id = torch.full((BATCH_SIZE, ), transcript_tok_id).to(device)
-    #     embeded_transcript_token = embed(transcript_tok_id).view((BATCH_SIZE, 1, -1))
+            score = {
+                'wer': edit_distance(candidate, transcripts[0]) / len(transcripts[0]),
+                'bleu': bleu.corpus_score([candidate], [transcripts]).score,
+                'chrf': chrf.corpus_score([candidate], [transcripts]).score,
+                'ter': ter.corpus_score([candidate], [transcripts]).score,
+            }
 
-    #     # translation_tok_id = tokenizer('<|translation|>')['input_ids'][0]
-    #     # translation_tok_id = torch.full((BATCH_SIZE, ), translation_tok_id).to(device)
-    #     embeded_translation_token = embed(translation_tok_id).view((BATCH_SIZE, 1, -1))
+            print('score:', score)
+            print('transcript:', transcripts[0])
+            print('translation:', candidate)
+            print('golden:', translations[0])
 
-    #     # eot_tok_id = tokenizer('<|endoftext|>')['input_ids'][0]
-    #     # eot_tok_id = torch.full((BATCH_SIZE, ), eot_tok_id).to(device)
-    #     embeded_eot_token = embed(eot_tok_id).view((BATCH_SIZE, 1, -1))
-
-    #     # print(embeded_audio_token.shape, audio_hidden_feats.shape, embeded_transcripts.shape)
-
-    #     hidden_feats = torch.cat(
-    #         (
-    #             embeded_audio_token, audio_hidden_feats, \
-    #             embeded_transcript_token, embeded_transcripts, \
-    #             embeded_translation_token, embeded_translations, \
-    #             embeded_eot_token
-    #         ),
-    #         dim=1
-    #     )
-
-    #     # hidden_feats = hidden_feats.squeeze(dim=0)
-    #     # hidden_feats = hidden_feats.bfloat16()
-    #     hidden_feats = hidden_feats.to(device)
-
-    #     # asr_attention_masks = [
-    #     #     [1] * (embeded_audio_token.shape[1] + audio_hidden_feats.shape[1] + embeded_transcript_token.shape[1] + embeded_transcripts.shape[1]) + \
-    #     #     [0] * (embeded_translation_token.shape[1] + embeded_translations.shape[1] + embeded_eot_token.shape[1])
-    #     # ]
-    #     # asr_labels = [
-    #     #     [-100] * (embeded_audio_token.shape[1] + audio_hidden_feats.shape[1] + embeded_transcript_token.shape[1]) + \
-    #     #     transcripts[0] + \
-    #     #     [translation_tok_id] + \
-    #     #     [-100] * (embeded_translations.shape[1] + embeded_eot_token.shape[1])
-    #     # ]
-    #     # asr_attention_masks = torch.tensor(asr_attention_masks).view((BATCH_SIZE, -1)).to(device)
-    #     # asr_labels = torch.tensor(asr_labels).view((BATCH_SIZE, -1)).to(device)
-
-    #     translation_attention_masks = [
-    #         [1] * hidden_feats.shape[0]
-    #     ]
-    #     translation_labels = [
-    #         [-100] * (embeded_audio_token.shape[1] + audio_hidden_feats.shape[1] + embeded_transcript_token.shape[1]) + \
-    #         # embeded_transcripts.shape[1] + embeded_translation_token.shape[1]) + \
-    #         transcripts[0] + \
-    #         [translation_tok_id] + \
-    #         translations[0] + \
-    #         [eot_tok_id]
-    #     ]
-    #     translation_attention_masks = torch.tensor(translation_attention_masks).view((BATCH_SIZE, -1)).to(device)
-    #     translation_labels = torch.tensor(translation_labels).view((BATCH_SIZE, -1)).to(device)
-
-    #     # asr_labels = asr_masks * 
-
-    #     # cat_embeds = torch.cat((embeded_aud, ctc_hidden, embeded_prompt, embeded_trans), dim=1).bfloat16()
-
-    #     # labels = [[-100] * (len(aud_tok_id[0]) + len(ctc_hidden[0]) + len(prompt_tok_id[0]))]
-    #     # labels = torch.tensor(labels).to(device)
-    #     # labels = torch.cat((labels, trans), dim=-1)
-
-    #     # print(cat_embeds.shape, labels.shape)
-
-    #     # print(hidden_feats.shape)
-
-    #     # asr_output = decoder(inputs_embeds=hidden_feats, attention_mask=asr_attention_masks, labels=asr_labels)
-    #     translation_output = decoder(inputs_embeds=hidden_feats, attention_mask=translation_attention_masks, labels=translation_labels)
-
-    #     # asr_loss = asr_output.loss
-    #     translation_loss = translation_output.loss
-
-    #     loss = translation_loss
-    #     print(loss)
-
-    #     optimizer.zero_grad()
-    #     loss.backward()
-    #     optimizer.step()
-    #     lr_scheduler.step()
-
-        # i += 1
-
-
+            # break
 
 
 if __name__ == '__main__':
-    main()
+    main(args)
