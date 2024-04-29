@@ -83,12 +83,15 @@ def train(
 
         print(f'Loss = {mean_loss}')
 
+        os.makedirs(os.path.join('models', f'{args.dataset}_{args.direction}', f'e{epoch + 1}'), exist_ok=True)
+        os.makedirs(os.path.join('models', f'{args.dataset}_{args.direction}', f'e{epoch + 1}', 'decoder'), exist_ok=True)
+
         torch.save(
             encoder.project.state_dict(),
-            os.path.join('models', f'{args.dataset}_{args.direction}', f'hubert_to_{args.decoder}_projection_e{epoch + 1}.pth')
+            os.path.join('models', f'{args.dataset}_{args.direction}', f'e{epoch + 1}', f'hubert_to_{args.decoder}_projection_e{epoch + 1}.pth')
         )
 
-        decoder.save_pretrained(os.path.join('models', f'{args.dataset}_{args.direction}', f'{args.decoder}_e{epoch + 1}.pth'))
+        decoder.save_pretrained(os.path.join('models', f'{args.dataset}_{args.direction}', f'e{epoch + 1}', 'decoder'))
         # torch.save(
         #     decoder.state_dict(),
         #     os.path.join('models', f'{args.dataset}_{args.direction}', f'{args.decoder}_e{epoch + 1}.pth')
@@ -412,6 +415,7 @@ def main(args: argparse.Namespace):
 
         os.makedirs('models', exist_ok=True)
         os.makedirs(os.path.join('models', f'{args.dataset}_{args.direction}'), exist_ok=True)
+        os.makedirs(os.path.join('models', f'{args.dataset}_{args.direction}', 'decoder'), exist_ok=True)
 
         train(
             encoder,
@@ -430,7 +434,9 @@ def main(args: argparse.Namespace):
             os.path.join('models', f'{args.dataset}_{args.direction}', f'hubert_to_{args.decoder}_projection.pth')
         )
 
-        decoder.save_pretrained(os.path.join('models', f'{args.dataset}_{args.direction}', f'{args.decoder}.pth'))
+        decoder.save_pretrained(os.path.join('models', f'{args.dataset}_{args.direction}', 'decoder'))
+
+        # decoder.save_pretrained(os.path.join('models', f'{args.dataset}_{args.direction}', f'{args.decoder}.pth'))
         # torch.save(
         #     decoder.state_dict(),
         #     os.path.join('models', f'{args.dataset}_{args.direction}', f'{args.decoder}.pth')
