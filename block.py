@@ -133,11 +133,11 @@ class Encoder(nn.Module):
 
     #     return hidden#, feats
 
-    def forward(self, feats: torch.Tensor) -> torch.Tensor:
+    def forward(self, feats: torch.Tensor, attention_mask: torch.Tensor=None) -> torch.Tensor:
         # feats = self.feature_extractor(audio, sampling_rate=self.sampling_rate, return_tensors='pt').input_values
 
         # feats = self.encoder(feats, attention_mask=attention_mask).last_hidden_state
-        feats = self.encoder(feats, output_hidden_states=True)
+        feats = self.encoder(feats, attention_mask=attention_mask, output_hidden_states=True)
 
         # print(feats, feats.shape)
 

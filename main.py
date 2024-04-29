@@ -101,7 +101,8 @@ def train_step(
 
     audio_feats = audio_feats.to(device)
 
-    audio_hidden_feats = encoder(audio_feats)
+    audio_attention_masks = torch.ones((audio_feats.shape[0], audio_feats.shape[1])).to(device)
+    audio_hidden_feats = encoder(audio_feats, attention_mask=audio_attention_masks)
 
     transcripts = list(
         map(
