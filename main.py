@@ -8,6 +8,7 @@ import torch.utils.data
 from torchaudio.functional import edit_distance
 
 os.environ['HF_HOME'] = os.getcwd() + '/checkpoints'
+os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 
 from sacrebleu.metrics import BLEU, CHRF, TER
 import torch
@@ -33,6 +34,7 @@ parser.add_argument('--direction', default='en-cs', type=str, choices=['en-en', 
 parser.add_argument('--train_subset', default='train', type=str, required=True, help='Train subset.')
 parser.add_argument('--dev_subset', default='dev', type=str, required=True, help='Dev subset.')
 parser.add_argument('--decoder', default='gpt-2', type=str, choices=['gpt-2', 'gemma'], required=True, help='Decoder name.')
+parser.add_argument('--data_dir', default=None, type=str, help='Data directory.')
 parser.add_argument('--train', default=False, action='store_true', help='Train or Eval.')
 
 args = parser.parse_args()
@@ -54,6 +56,8 @@ def train(
     for epoch in range(num_epochs):
         mean_loss = 0.0
 
+        valid_size = len(train_loader)
+
         print(f'Epoch #{epoch + 1}:')
         for audio_feats, transcripts, translations in tqdm(train_loader):
             try:
@@ -74,12 +78,14 @@ def train(
                 optimizer.step()
                 lr_scheduler.step()
             except Exception:
+                valid_size -= 1
+
                 print(transcripts)
                 print(translations)
                 print()
                 continue
 
-        mean_loss = mean_loss / len(train_loader)
+        mean_loss = mean_loss / valid_size
 
         print(f'Loss = {mean_loss}')
 
@@ -87,15 +93,15 @@ def train(
         os.makedirs(os.path.join('models', f'{args.dataset}_{args.direction}', f'e{epoch + 1}', 'decoder'), exist_ok=True)
 
         torch.save(
-            encoder.project.state_dict(),
+            encoder.project.cpu().state_dict(),
             os.path.join('models', f'{args.dataset}_{args.direction}', f'e{epoch + 1}', f'hubert_to_{args.decoder}_projection_e{epoch + 1}.pth')
         )
 
-        decoder.save_pretrained(os.path.join('models', f'{args.dataset}_{args.direction}', f'e{epoch + 1}', 'decoder'))
-        # torch.save(
-        #     decoder.state_dict(),
-        #     os.path.join('models', f'{args.dataset}_{args.direction}', f'{args.decoder}_e{epoch + 1}.pth')
-        # )
+        # decoder.save_pretrained(os.path.join('models', f'{args.dataset}_{args.direction}', f'e{epoch + 1}', 'decoder'))
+        torch.save(
+            decoder.cpu().state_dict(),
+            os.path.join('models', f'{args.dataset}_{args.direction}', f'e{epoch + 1}', 'decoder', f'{args.decoder}_e{epoch + 1}.pth')
+        )
 
 
 def train_step(
@@ -401,7 +407,7 @@ def main(args: argparse.Namespace):
     eot_tok_id = torch.full((args.batch_size, ), eot_tok_id).to(device)
 
     if args.train:
-        librispeech_train = get_dataset(name=args.dataset, direction=args.direction, subset=args.train_subset)
+        librispeech_train = get_dataset(name=args.dataset, direction=args.direction, subset=args.train_subset, root=args.data_dir)
         train_loader = DataLoader(librispeech_train, feature_extractor, batch_size=args.batch_size)
 
         optimizer = torch.optim.Adam(
@@ -434,13 +440,13 @@ def main(args: argparse.Namespace):
             os.path.join('models', f'{args.dataset}_{args.direction}', f'hubert_to_{args.decoder}_projection.pth')
         )
 
-        decoder.save_pretrained(os.path.join('models', f'{args.dataset}_{args.direction}', 'decoder'))
+        # decoder.save_pretrained(os.path.join('models', f'{args.dataset}_{args.direction}', 'decoder'))
 
         # decoder.save_pretrained(os.path.join('models', f'{args.dataset}_{args.direction}', f'{args.decoder}.pth'))
-        # torch.save(
-        #     decoder.state_dict(),
-        #     os.path.join('models', f'{args.dataset}_{args.direction}', f'{args.decoder}.pth')
-        # )
+        torch.save(
+            decoder.state_dict(),
+            os.path.join('models', f'{args.dataset}_{args.direction}', 'decoder', f'{args.decoder}.pth')
+        )
     else:
         librispeech_dev = get_dataset(name=args.dataset, direction=args.direction, subset=args.dev_subset)
         dev_loader = DataLoader(librispeech_dev, feature_extractor, batch_size=args.batch_size)
