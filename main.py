@@ -56,22 +56,25 @@ def train(
 
         print(f'Epoch #{epoch + 1}:')
         for audio_feats, transcripts, translations in tqdm(train_loader):
-            loss = train_step(
-                encoder,
-                decoder,
-                tokenizer,
-                audio_feats=audio_feats,
-                transcripts=transcripts,
-                translations=translations,
-                special_token_ids=special_token_ids
-            )
+            try:
+                loss = train_step(
+                    encoder,
+                    decoder,
+                    tokenizer,
+                    audio_feats=audio_feats,
+                    transcripts=transcripts,
+                    translations=translations,
+                    special_token_ids=special_token_ids
+                )
 
-            mean_loss += loss.item()
+                mean_loss += loss.item()
 
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-            lr_scheduler.step()
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+                lr_scheduler.step()
+            except Exception:
+                continue
 
         mean_loss = mean_loss / len(train_loader)
 
@@ -101,7 +104,7 @@ def train_step(
 
     audio_feats = audio_feats.to(device)
 
-    audio_attention_masks = torch.ones((audio_feats.shape[0], audio_feats.shape[1])).to(device)
+    audio_attention_masks = torch.ones_like(audio_feats).to(device)
     audio_hidden_feats = encoder(audio_feats, attention_mask=audio_attention_masks)
 
     transcripts = list(
