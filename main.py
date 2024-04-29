@@ -74,6 +74,9 @@ def train(
                 optimizer.step()
                 lr_scheduler.step()
             except Exception:
+                print(transcripts)
+                print(translations)
+                print()
                 continue
 
         mean_loss = mean_loss / len(train_loader)
@@ -84,10 +87,12 @@ def train(
             encoder.project.state_dict(),
             os.path.join('models', f'{args.dataset}_{args.direction}', f'hubert_to_{args.decoder}_projection_e{epoch + 1}.pth')
         )
-        torch.save(
-            decoder.state_dict(),
-            os.path.join('models', f'{args.dataset}_{args.direction}', f'{args.decoder}_e{epoch + 1}.pth')
-        )
+
+        decoder.save_pretrained(os.path.join('models', f'{args.dataset}_{args.direction}', f'{args.decoder}_e{epoch + 1}.pth'))
+        # torch.save(
+        #     decoder.state_dict(),
+        #     os.path.join('models', f'{args.dataset}_{args.direction}', f'{args.decoder}_e{epoch + 1}.pth')
+        # )
 
 
 def train_step(
@@ -424,10 +429,12 @@ def main(args: argparse.Namespace):
             encoder.project.state_dict(),
             os.path.join('models', f'{args.dataset}_{args.direction}', f'hubert_to_{args.decoder}_projection.pth')
         )
-        torch.save(
-            decoder.state_dict(),
-            os.path.join('models', f'{args.dataset}_{args.direction}', f'{args.decoder}.pth')
-        )
+
+        decoder.save_pretrained(os.path.join('models', f'{args.dataset}_{args.direction}', f'{args.decoder}.pth'))
+        # torch.save(
+        #     decoder.state_dict(),
+        #     os.path.join('models', f'{args.dataset}_{args.direction}', f'{args.decoder}.pth')
+        # )
     else:
         librispeech_dev = get_dataset(name=args.dataset, direction=args.direction, subset=args.dev_subset)
         dev_loader = DataLoader(librispeech_dev, feature_extractor, batch_size=args.batch_size)

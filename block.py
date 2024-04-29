@@ -178,7 +178,7 @@ class Encoder(nn.Module):
         hidden = self.project(hidden)
 
         return hidden
-    
+
 class GPT2Decoder(nn.Module):
     device = torch.device(device)
 
@@ -226,6 +226,12 @@ class GPT2Decoder(nn.Module):
     
     def generate(self, **kwargs):
         return self.decoder.generate(**kwargs)
+    
+    def save_pretrained(self, model_path: str):
+        self.decoder.save_pretrained(model_path)
+
+    def load_pretrained(self, model_path: str):
+        self.decoder = GPT2LMHeadModel.from_pretrained(model_path)
 
 class GemmaDecoder(nn.Module):
     device = torch.device(device)
