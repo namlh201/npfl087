@@ -29,7 +29,7 @@ def get_tokenizer(decoder: str='gpt-2') -> nn.Module:
 class Encoder(nn.Module):
     device = torch.device(device)
 
-    def __init__(self, decoder_hidden_size: int):
+    def __init__(self):
         super().__init__()
 
         # self.tokenizer = tokenizer
@@ -56,7 +56,10 @@ class Encoder(nn.Module):
 
         # self.ctc_head = nn.Linear(self.encoder.config.hidden_size, tokenizer.vocab_size) #.to(self.device)
 
-        self.project = nn.Linear(self.encoder.config.hidden_size, decoder_hidden_size) #.to(self.device)
+        # self.project = nn.Linear(self.encoder.config.hidden_size, decoder_hidden_size) #.to(self.device)
+
+    def get_hidden_size(self) -> int:
+        return self.encoder.config.hidden_size
 
     # def ctc_decode(self, ids: torch.Tensor) -> torch.Tensor:
     #     tok_ids, tok_id_repetitions = zip(*((token, len(list(group_iter))) for token, group_iter in groupby(ids)))
@@ -175,14 +178,28 @@ class Encoder(nn.Module):
 
         hidden = torch.stack(filtered_hidden, dim=1)
 
-        hidden = self.project(hidden)
+        # hidden = self.project(hidden)
 
         return hidden
+    
+class Projection(nn.Module):
+    device = torch.device(device)
+
+    def __init__(self, encoder_hidden_size: int, decoder_hidden_size: int):
+        super().__init__()
+
+        self.project = nn.Linear(encoder_hidden_size, decoder_hidden_size)
+
+    # def load_state_dict(self, state_dict: os.Mapping[str, dict], strict: bool = True, assign: bool = False):
+    #     self.project.load_state_dict(state_dict, strict, assign)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.project(x)
 
 class GPT2Decoder(nn.Module):
     device = torch.device(device)
 
-    def __init__(self, tokenizer: nn.Module):
+    def __init__(self, vocab_size: int):
         super().__init__()
 
         # self.tokenizer = tokenizer
@@ -210,7 +227,7 @@ class GPT2Decoder(nn.Module):
         # self.decoder = get_peft_model(self.decoder, lora_config)
 
         self.decoder = GPT2LMHeadModel.from_pretrained("openai-community/gpt2") #.to(self.device)
-        self.decoder.resize_token_embeddings(len(tokenizer))
+        self.decoder.resize_token_embeddings(vocab_size)
 
         # for params in self.decoder.parameters():
         #     params.requires_grad = False

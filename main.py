@@ -20,7 +20,7 @@ from tqdm import tqdm
 
 logging.set_verbosity_error()
 
-from block import Encoder, GPT2Decoder, get_tokenizer
+from block import Encoder, GPT2Decoder, Projection, get_tokenizer
 from data import DataLoader
 from utils import get_dataset
 
@@ -41,6 +41,7 @@ args = parser.parse_args()
 
 def train(
     encoder: nn.Module,
+    projection: nn.Module,
     decoder: nn.Module,
     tokenizer: AutoTokenizer,
     optimizer: torch.optim.Optimizer,
@@ -50,8 +51,9 @@ def train(
     num_epochs: int,
     special_token_ids: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
 ) -> None:
-    encoder.train()
-    decoder.train()
+    # encoder.train()
+    # projection.train()
+    # decoder.train()
 
     for epoch in range(num_epochs):
         mean_loss = 0.0
@@ -63,6 +65,7 @@ def train(
             try:
                 loss = train_step(
                     encoder,
+                    projection,
                     decoder,
                     tokenizer,
                     audio_feats=audio_feats,
@@ -93,19 +96,20 @@ def train(
         os.makedirs(os.path.join('models', f'{args.dataset}_{args.direction}', f'e{epoch + 1}', 'decoder'), exist_ok=True)
 
         torch.save(
-            encoder.project.cpu().state_dict(),
+            projection.state_dict(),
             os.path.join('models', f'{args.dataset}_{args.direction}', f'e{epoch + 1}', f'hubert_to_{args.decoder}_projection_e{epoch + 1}.pth')
         )
 
         # decoder.save_pretrained(os.path.join('models', f'{args.dataset}_{args.direction}', f'e{epoch + 1}', 'decoder'))
         torch.save(
-            decoder.cpu().state_dict(),
+            decoder.state_dict(),
             os.path.join('models', f'{args.dataset}_{args.direction}', f'e{epoch + 1}', 'decoder', f'{args.decoder}_e{epoch + 1}.pth')
         )
 
 
 def train_step(
     encoder: nn.Module,
+    projection: nn.Module,
     decoder: nn.Module,
     tokenizer: AutoTokenizer,
     audio_feats: torch.Tensor,
@@ -120,6 +124,7 @@ def train_step(
 
     audio_attention_masks = torch.ones_like(audio_feats).to(device)
     audio_hidden_feats = encoder(audio_feats, attention_mask=audio_attention_masks)
+    audio_hidden_feats = projection(audio_hidden_feats)
 
     transcripts = list(
         map(
@@ -288,6 +293,7 @@ def train_step(
 
 def generate_one(
     encoder: nn.Module,
+    projection: nn.Module,
     decoder: nn.Module,
     tokenizer: AutoTokenizer,
     audio_feats: torch.Tensor,
@@ -296,6 +302,7 @@ def generate_one(
     special_token_ids: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
 ) -> None:
     encoder.eval()
+    projection.eval()
     decoder.eval()
 
     # tokenizer.pad_token_id = tokenizer.eos_token_id
@@ -306,6 +313,7 @@ def generate_one(
     audio_feats = audio_feats.to(device)
 
     audio_hidden_feats = encoder(audio_feats)
+    audio_hidden_feats = projection(audio_hidden_feats)
 
     # encoded_transcripts = list(
     #     map(
@@ -389,10 +397,13 @@ def main(args: argparse.Namespace):
     tokenizer = get_tokenizer(args.decoder)
     # print(tokenizer)
 
-    decoder = GPT2Decoder(tokenizer).to(device)
+    encoder = Encoder().to(device)
+    enc_hidden_size = encoder.get_hidden_size()
+
+    decoder = GPT2Decoder(len(tokenizer)).to(device)
     dec_hidden_size = decoder.get_hidden_size()
 
-    encoder = Encoder(dec_hidden_size).to(device)
+    projection = Projection(enc_hidden_size, dec_hidden_size).to(device)
 
     audio_tok_id = tokenizer('<|audio|>')['input_ids'][0]
     audio_tok_id = torch.full((args.batch_size, ), audio_tok_id).to(device)
@@ -411,12 +422,13 @@ def main(args: argparse.Namespace):
         train_loader = DataLoader(librispeech_train, feature_extractor, batch_size=args.batch_size)
 
         optimizer = torch.optim.Adam(
-            list(encoder.project.parameters()) + list(decoder.parameters()),
+            list(projection.parameters()) + list(decoder.parameters()),
             lr=0.001,
         )
         lr_scheduler = get_cosine_schedule_with_warmup(optimizer, 10, args.epochs * len(train_loader))
 
         encoder.train()
+        projection.train()
         decoder.train()
 
         os.makedirs('models', exist_ok=True)
@@ -425,6 +437,7 @@ def main(args: argparse.Namespace):
 
         train(
             encoder,
+            projection,
             decoder,
             tokenizer,
             optimizer,
@@ -436,7 +449,7 @@ def main(args: argparse.Namespace):
         )
 
         torch.save(
-            encoder.project.state_dict(),
+            projection.state_dict(),
             os.path.join('models', f'{args.dataset}_{args.direction}', f'hubert_to_{args.decoder}_projection.pth')
         )
 
@@ -451,15 +464,25 @@ def main(args: argparse.Namespace):
         librispeech_dev = get_dataset(name=args.dataset, direction=args.direction, subset=args.dev_subset)
         dev_loader = DataLoader(librispeech_dev, feature_extractor, batch_size=args.batch_size)
 
-        encoder.project.load_state_dict(
-            torch.load(
+        # IGNORE THIS PART FOR NOW
+        proj_state_dict = torch.load(
                 os.path.join('models', f'{args.dataset}_{args.direction}', f'hubert_to_{args.decoder}_projection.pth'),
-                map_location=encoder.device
+                map_location=projection.device
             )
-        )
+        proj_state_dict['project.weight'] = proj_state_dict.pop('weight')
+        proj_state_dict['project.bias'] = proj_state_dict.pop('bias')
+        # print(proj_state_dict)
+        # projection.load_state_dict(
+        #     torch.load(
+        #         os.path.join('models', f'{args.dataset}_{args.direction}', f'hubert_to_{args.decoder}_projection.pth'),
+        #         map_location=projection.device
+        #     ),
+        # )
+        projection.load_state_dict(proj_state_dict)
+        # print(projection.state_dict())
         decoder.load_state_dict(
             torch.load(
-                os.path.join('models', f'{args.dataset}_{args.direction}', f'{args.decoder}.pth'),
+                os.path.join('models', f'{args.dataset}_{args.direction}', 'decoder', f'{args.decoder}.pth'),
                 map_location=decoder.device
             )
         )
@@ -471,6 +494,7 @@ def main(args: argparse.Namespace):
         for audio_feats, transcripts, translations in tqdm(dev_loader):
             candidate = generate_one(
                 encoder,
+                projection,
                 decoder,
                 tokenizer,
                 audio_feats=audio_feats,
