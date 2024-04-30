@@ -3,11 +3,25 @@ import argparse
 import warnings
 warnings.filterwarnings('ignore', category=UserWarning, message='TypedStorage is deprecated')
 
+parser = argparse.ArgumentParser()
+parser.add_argument('--batch_size', default=1, type=int, help='Batch size.')
+parser.add_argument('--epochs', default=10, type=int, help='Number of epochs.')
+parser.add_argument('--dataset', default='MUSTC', type=str, choices=['MUSTC', 'LIBRISPEECH'], required=True, help='Dataset name.')
+parser.add_argument('--direction', default='en-cs', type=str, choices=['en-en', 'en-cs'], required=True, help='Translation direction.')
+parser.add_argument('--train_subset', default='train', type=str, required=True, help='Train subset.')
+parser.add_argument('--dev_subset', default='dev', type=str, required=True, help='Dev subset.')
+parser.add_argument('--decoder', default='gpt-2', type=str, choices=['gpt-2', 'gemma'], required=True, help='Decoder name.')
+parser.add_argument('--data_dir', default=None, type=str, help='Data directory.')
+parser.add_argument('--checkpoints_dir', default=None, type=str, help='Pretrained models checkpoint directory.')
+parser.add_argument('--train', default=False, action='store_true', help='Train or Eval.')
+
+args = parser.parse_args()
+
 import torch.utils
 import torch.utils.data
 from torchaudio.functional import edit_distance
 
-os.environ['HF_HOME'] = os.getcwd() + '/checkpoints'
+os.environ['HF_HOME'] = args.checkpoints_dir if args.checkpoints_dir else os.getcwd() + '/checkpoints'
 os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 
 from sacrebleu.metrics import BLEU, CHRF, TER
@@ -25,19 +39,6 @@ from data import DataLoader
 from utils import get_dataset
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-
-parser = argparse.ArgumentParser()
-parser.add_argument('--batch_size', default=1, type=int, help='Batch size.')
-parser.add_argument('--epochs', default=10, type=int, help='Number of epochs.')
-parser.add_argument('--dataset', default='MUSTC', type=str, choices=['MUSTC', 'LIBRISPEECH'], required=True, help='Dataset name.')
-parser.add_argument('--direction', default='en-cs', type=str, choices=['en-en', 'en-cs'], required=True, help='Translation direction.')
-parser.add_argument('--train_subset', default='train', type=str, required=True, help='Train subset.')
-parser.add_argument('--dev_subset', default='dev', type=str, required=True, help='Dev subset.')
-parser.add_argument('--decoder', default='gpt-2', type=str, choices=['gpt-2', 'gemma'], required=True, help='Decoder name.')
-parser.add_argument('--data_dir', default=None, type=str, help='Data directory.')
-parser.add_argument('--train', default=False, action='store_true', help='Train or Eval.')
-
-args = parser.parse_args()
 
 def train(
     encoder: nn.Module,
