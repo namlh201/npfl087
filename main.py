@@ -34,9 +34,9 @@ from tqdm import tqdm
 
 logging.set_verbosity_error()
 
-from block import Encoder, GPT2Decoder, Projection, get_tokenizer
+from block import Encoder, Projection
 from data import DataLoader
-from utils import get_dataset
+from utils import get_dataset, get_decoder, get_tokenizer
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -61,8 +61,13 @@ def train(
 
         valid_size = len(train_loader)
 
+        # i = 0
+
         print(f'Epoch #{epoch + 1}:')
         for audio_feats, transcripts, translations in tqdm(train_loader):
+            # if i == 3:
+            #     break
+
             try:
                 loss = train_step(
                     encoder,
@@ -89,6 +94,8 @@ def train(
                 print()
                 continue
 
+            # i += 1
+
         mean_loss = mean_loss / valid_size
 
         print(f'Loss = {mean_loss}')
@@ -96,16 +103,18 @@ def train(
         os.makedirs(os.path.join('models', f'{args.dataset}_{args.direction}', f'e{epoch + 1}'), exist_ok=True)
         os.makedirs(os.path.join('models', f'{args.dataset}_{args.direction}', f'e{epoch + 1}', 'decoder'), exist_ok=True)
 
-        torch.save(
-            projection.state_dict(),
-            os.path.join('models', f'{args.dataset}_{args.direction}', f'e{epoch + 1}', f'hubert_to_{args.decoder}_projection_e{epoch + 1}.pth')
-        )
+        # torch.save(
+        #     projection.state_dict(),
+        #     os.path.join('models', f'{args.dataset}_{args.direction}', f'e{epoch + 1}', f'hubert_to_{args.decoder}_projection_e{epoch + 1}.pth')
+        # )
 
-        # decoder.save_pretrained(os.path.join('models', f'{args.dataset}_{args.direction}', f'e{epoch + 1}', 'decoder'))
-        torch.save(
-            decoder.state_dict(),
-            os.path.join('models', f'{args.dataset}_{args.direction}', f'e{epoch + 1}', 'decoder', f'{args.decoder}_e{epoch + 1}.pth')
-        )
+        # decoder.save_pretrained(
+        #     os.path.join('models', f'{args.dataset}_{args.direction}', f'e{epoch + 1}', 'decoder', f'{args.decoder}_e{epoch + 1}.pth')
+        # )
+        # torch.save(
+        #     decoder.state_dict(),
+        #     os.path.join('models', f'{args.dataset}_{args.direction}', f'e{epoch + 1}', 'decoder', f'{args.decoder}_e{epoch + 1}.pth')
+        # )
 
 
 def train_step(
@@ -401,7 +410,8 @@ def main(args: argparse.Namespace):
     encoder = Encoder().to(device)
     enc_hidden_size = encoder.get_hidden_size()
 
-    decoder = GPT2Decoder(len(tokenizer)).to(device)
+    # decoder = GPT2Decoder(len(tokenizer)).to(device)
+    decoder = get_decoder(args.decoder, len(tokenizer)).to(device)
     dec_hidden_size = decoder.get_hidden_size()
 
     projection = Projection(enc_hidden_size, dec_hidden_size).to(device)
@@ -454,21 +464,23 @@ def main(args: argparse.Namespace):
             os.path.join('models', f'{args.dataset}_{args.direction}', f'hubert_to_{args.decoder}_projection.pth')
         )
 
-        # decoder.save_pretrained(os.path.join('models', f'{args.dataset}_{args.direction}', 'decoder'))
-
-        # decoder.save_pretrained(os.path.join('models', f'{args.dataset}_{args.direction}', f'{args.decoder}.pth'))
-        torch.save(
-            decoder.state_dict(),
-            os.path.join('models', f'{args.dataset}_{args.direction}', 'decoder', f'{args.decoder}.pth')
-        )
+        if args.decoder == 'gpt-2':
+            decoder.save_pretrained(os.path.join('models', f'{args.dataset}_{args.direction}', 'decoder', f'{args.decoder}.pth'))
+        elif args.decoder == 'gemma':
+            decoder.save_pretrained(os.path.join('models', f'{args.dataset}_{args.direction}', 'decoder'))
+        
+        # torch.save(
+        #     decoder.state_dict(),
+        #     os.path.join('models', f'{args.dataset}_{args.direction}', 'decoder', f'{args.decoder}.pth')
+        # )
     else:
-        librispeech_dev = get_dataset(name=args.dataset, direction=args.direction, subset=args.dev_subset)
+        librispeech_dev = get_dataset(name=args.dataset, direction=args.direction, subset=args.dev_subset, root=args.data_dir)
         dev_loader = DataLoader(librispeech_dev, feature_extractor, batch_size=args.batch_size)
 
         # IGNORE THIS PART FOR NOW
         proj_state_dict = torch.load(
                 os.path.join('models', f'{args.dataset}_{args.direction}', f'hubert_to_{args.decoder}_projection.pth'),
-                map_location=projection.device
+                map_location=device
             )
         proj_state_dict['project.weight'] = proj_state_dict.pop('weight')
         proj_state_dict['project.bias'] = proj_state_dict.pop('bias')
@@ -484,7 +496,7 @@ def main(args: argparse.Namespace):
         decoder.load_state_dict(
             torch.load(
                 os.path.join('models', f'{args.dataset}_{args.direction}', 'decoder', f'{args.decoder}.pth'),
-                map_location=decoder.device
+                map_location=device
             )
         )
 

@@ -1,8 +1,11 @@
 import os
 
+from torch import nn
 from torch.utils.data import Dataset
 from torchaudio.datasets import LIBRISPEECH
+from transformers import AutoTokenizer, GPT2Tokenizer
 
+from block import Decoder, GPT2Decoder, GemmaDecoder
 from dataset import MUSTC
 
 def get_dataset(name: str, direction: str, subset: str, root: str=None) -> Dataset:
@@ -34,3 +37,23 @@ def get_dataset(name: str, direction: str, subset: str, root: str=None) -> Datas
         return MUSTC(root, direction=direction, subset=subset)
     elif name == 'LIBRISPEECH':
         return LIBRISPEECH(root, url=subset, download=True)
+
+def get_decoder(decoder: str, vocab_size: int) -> Decoder:
+    if decoder == 'gpt-2':
+        return GPT2Decoder(vocab_size)
+    elif decoder == 'gemma':
+        return GemmaDecoder(vocab_size)
+
+def get_tokenizer(decoder: str='gpt-2') -> nn.Module:
+    SPECIAL_TOKENS = ['<|audio|>', '<|transcript|>', '<|translation|>']
+
+    if decoder == 'gpt-2':
+        tokenizer = GPT2Tokenizer.from_pretrained("openai-community/gpt2")
+    elif decoder == 'gemma':
+        tokenizer = AutoTokenizer.from_pretrained('google/gemma-2b', token=os.environ['HF_TOKEN'])
+
+    tokenizer.add_special_tokens({
+        'additional_special_tokens': SPECIAL_TOKENS
+    })
+
+    return tokenizer

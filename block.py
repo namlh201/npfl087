@@ -8,26 +8,12 @@ import torch
 from torch import nn
 # import torch.nn.functional as F
 from transformers import AutoTokenizer, GPT2LMHeadModel, GPT2Tokenizer, HubertForCTC, AutoModelForCausalLM, BitsAndBytesConfig
-from peft import LoraConfig, get_peft_model
+from peft import LoraConfig, get_peft_model, PeftModel
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-def get_tokenizer(decoder: str='gpt-2') -> nn.Module:
-    SPECIAL_TOKENS = ['<|audio|>', '<|transcript|>', '<|translation|>']
-
-    if decoder == 'gpt-2':
-        tokenizer = GPT2Tokenizer.from_pretrained("openai-community/gpt2")
-    elif decoder == 'gemma':
-        tokenizer = AutoTokenizer.from_pretrained('google/gemma-2b', token=os.environ['HF_TOKEN'])
-
-    tokenizer.add_special_tokens({
-        'additional_special_tokens': SPECIAL_TOKENS
-    })
-
-    return tokenizer
-
 class Encoder(nn.Module):
-    device = torch.device(device)
+    # device = torch.device(device)
 
     def __init__(self):
         super().__init__()
@@ -183,7 +169,7 @@ class Encoder(nn.Module):
         return hidden
     
 class Projection(nn.Module):
-    device = torch.device(device)
+    # device = torch.device(device)
 
     def __init__(self, encoder_hidden_size: int, decoder_hidden_size: int):
         super().__init__()
@@ -196,8 +182,21 @@ class Projection(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.project(x)
 
-class GPT2Decoder(nn.Module):
-    device = torch.device(device)
+class Decoder(nn.Module):
+    def get_hidden_size(self) -> int:
+        pass
+
+    def get_input_embeddings(self):
+        pass
+
+    def save_pretrained(self, model_dir_path: str):
+        pass
+
+    def load_pretrained(self, model_dir_path: str):
+        pass
+
+class GPT2Decoder(Decoder):
+    # device = torch.device(device)
 
     def __init__(self, vocab_size: int):
         super().__init__()
@@ -245,15 +244,23 @@ class GPT2Decoder(nn.Module):
         return self.decoder.generate(**kwargs)
     
     def save_pretrained(self, model_path: str):
-        self.decoder.save_pretrained(model_path)
+        torch.save(
+            self.state_dict(),
+            model_path
+        )
 
     def load_pretrained(self, model_path: str):
-        self.decoder = GPT2LMHeadModel.from_pretrained(model_path)
+        self.load_state_dict(
+            torch.load(
+                model_path,
+                map_location=self.device
+            )
+        )
 
-class GemmaDecoder(nn.Module):
-    device = torch.device(device)
+class GemmaDecoder(Decoder):
+    # device = torch.device(device)
 
-    def __init__(self, tokenizer: nn.Module):
+    def __init__(self, vocab_size: int):
         super().__init__()
 
         # self.tokenizer = tokenizer
@@ -281,12 +288,12 @@ class GemmaDecoder(nn.Module):
         self.decoder = get_peft_model(self.decoder, lora_config)
 
         # self.decoder = GPT2LMHeadModel.from_pretrained("openai-community/gpt2") #.to(self.device)
-        self.decoder.resize_token_embeddings(len(tokenizer))
+        self.decoder.resize_token_embeddings(vocab_size)
 
 
         # TODO: freeze Gemma's layers or not?????
-        for params in self.decoder.parameters():
-            params.requires_grad = False
+        # for params in self.decoder.parameters():
+        #     params.requires_grad = False
 
     def get_hidden_size(self) -> int:
         return self.decoder.get_decoder().config.hidden_size
@@ -296,3 +303,26 @@ class GemmaDecoder(nn.Module):
 
     def forward(self, **kwargs):
         return self.decoder(**kwargs)
+    
+    def generate(self, **kwargs):
+        return self.decoder.generate(**kwargs)
+    
+    def save_pretrained(self, model_dir_path: str):
+        self.decoder.save_pretrained(model_dir_path)
+
+    def load_pretrained(self, model_dir_path: str, is_trainable: bool=True):
+        bnb_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_compute_dtype=torch.bfloat16
+        )
+
+        self.decoder = AutoModelForCausalLM.from_pretrained(
+            'google/gemma-2b',
+            torch_dtype=torch.bfloat16,
+            quantization_config=bnb_config,
+            device_map={"":0},
+            token=os.environ['HF_TOKEN'],
+        )
+
+        self.decoder = PeftModel.from_pretrained(self.decoder, model_dir_path, is_trainable=is_trainable)
