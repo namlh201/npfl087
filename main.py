@@ -176,6 +176,7 @@ def train_step(
         ),
         dim=1
     )
+    input_feats = input_feats.bfloat16() if args.decoder == 'gemma' else input_feats
     input_feats = input_feats.to(device)
 
     translation_attention_masks = [
