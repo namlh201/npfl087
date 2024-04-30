@@ -86,11 +86,13 @@ def train(
                 loss.backward()
                 optimizer.step()
                 lr_scheduler.step()
-            except Exception:
+            except Exception as e:
                 valid_size -= 1
 
+                print(valid_size)
                 print(transcripts)
                 print(translations)
+                print(e)
                 print()
                 continue
 
