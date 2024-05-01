@@ -38,11 +38,11 @@ def get_dataset(name: str, direction: str, subset: str, root: str=None) -> Datas
     elif name == 'LIBRISPEECH':
         return LIBRISPEECH(root, url=subset, download=True)
 
-def get_decoder(decoder: str, vocab_size: int) -> Decoder:
+def get_decoder(decoder: str, vocab_size: int, init: bool=True) -> Decoder:
     if decoder == 'gpt-2':
         return GPT2Decoder(vocab_size)
     elif decoder == 'gemma':
-        return GemmaDecoder(vocab_size)
+        return GemmaDecoder(vocab_size, init_lora=init)
 
 def get_tokenizer(decoder: str='gpt-2') -> nn.Module:
     SPECIAL_TOKENS = ['<|audio|>', '<|transcript|>', '<|translation|>']

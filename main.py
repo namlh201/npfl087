@@ -5,12 +5,13 @@ warnings.filterwarnings('ignore', category=UserWarning, message='TypedStorage is
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--batch_size', default=1, type=int, help='Batch size.')
-parser.add_argument('--epochs', default=10, type=int, help='Number of epochs.')
+parser.add_argument('--epochs', default=5, type=int, help='Number of epochs.')
 parser.add_argument('--dataset', default='MUSTC', type=str, choices=['MUSTC', 'LIBRISPEECH'], required=True, help='Dataset name.')
 parser.add_argument('--direction', default='en-cs', type=str, choices=['en-en', 'en-cs'], required=True, help='Translation direction.')
 parser.add_argument('--train_subset', default='train', type=str, required=True, help='Train subset.')
 parser.add_argument('--dev_subset', default='dev', type=str, required=True, help='Dev subset.')
 parser.add_argument('--decoder', default='gpt-2', type=str, choices=['gpt-2', 'gemma'], required=True, help='Decoder name.')
+parser.add_argument('--init_lora', default=False, action='store_true', help='Whether init with LoRA or not.')
 parser.add_argument('--data_dir', default=None, type=str, help='Data directory.')
 parser.add_argument('--checkpoints_dir', default=None, type=str, help='Pretrained models checkpoint directory.')
 parser.add_argument('--train', default=False, action='store_true', help='Train or Eval.')
@@ -61,12 +62,12 @@ def train(
 
         valid_size = len(train_loader)
 
-        # i = 0
+        i = 0
 
         print(f'Epoch #{epoch + 1}:')
         for audio_feats, transcripts, translations in tqdm(train_loader):
-            # if i == 3:
-            #     break
+            if i == 3:
+                break
 
             try:
                 loss = train_step(
@@ -96,7 +97,7 @@ def train(
                 print()
                 continue
 
-            # i += 1
+            i += 1
 
         mean_loss = mean_loss / valid_size
 
@@ -105,10 +106,15 @@ def train(
         os.makedirs(os.path.join('models', f'{args.dataset}_{args.direction}', f'e{epoch + 1}'), exist_ok=True)
         os.makedirs(os.path.join('models', f'{args.dataset}_{args.direction}', f'e{epoch + 1}', 'decoder'), exist_ok=True)
 
-        # torch.save(
-        #     projection.state_dict(),
-        #     os.path.join('models', f'{args.dataset}_{args.direction}', f'e{epoch + 1}', f'hubert_to_{args.decoder}_projection_e{epoch + 1}.pth')
-        # )
+        torch.save(
+            projection.state_dict(),
+            os.path.join('models', f'{args.dataset}_{args.direction}', f'e{epoch + 1}', f'hubert_to_{args.decoder}_projection_e{epoch + 1}.pth')
+        )
+
+        if args.decoder == 'gpt-2':
+            decoder.save_pretrained(os.path.join('models', f'{args.dataset}_{args.direction}', f'e{epoch + 1}', 'decoder', f'{args.decoder}.pth'))
+        elif args.decoder == 'gemma':
+            decoder.save_pretrained(os.path.join('models', f'{args.dataset}_{args.direction}', f'e{epoch + 1}', 'decoder'))
 
         # decoder.save_pretrained(
         #     os.path.join('models', f'{args.dataset}_{args.direction}', f'e{epoch + 1}', 'decoder', f'{args.decoder}_e{epoch + 1}.pth')
@@ -367,6 +373,7 @@ def generate_one(
         ),
         dim=1
     )
+    input_feats = input_feats.bfloat16() if args.decoder == 'gemma' else input_feats
     input_feats = input_feats.to(device)
 
     attention_masks = torch.ones((input_feats.shape[0], input_feats.shape[1]))
@@ -414,7 +421,7 @@ def main(args: argparse.Namespace):
     enc_hidden_size = encoder.get_hidden_size()
 
     # decoder = GPT2Decoder(len(tokenizer)).to(device)
-    decoder = get_decoder(args.decoder, len(tokenizer)).to(device)
+    decoder = get_decoder(args.decoder, len(tokenizer), init=args.init_lora).to(device)
     dec_hidden_size = decoder.get_hidden_size()
 
     projection = Projection(enc_hidden_size, dec_hidden_size).to(device)
@@ -485,8 +492,10 @@ def main(args: argparse.Namespace):
                 os.path.join('models', f'{args.dataset}_{args.direction}', f'hubert_to_{args.decoder}_projection.pth'),
                 map_location=device
             )
-        proj_state_dict['project.weight'] = proj_state_dict.pop('weight')
-        proj_state_dict['project.bias'] = proj_state_dict.pop('bias')
+        
+        if 'weight' in proj_state_dict and 'bias' in proj_state_dict:
+            proj_state_dict['project.weight'] = proj_state_dict.pop('weight')
+            proj_state_dict['project.bias'] = proj_state_dict.pop('bias')
         # print(proj_state_dict)
         # projection.load_state_dict(
         #     torch.load(
@@ -496,12 +505,17 @@ def main(args: argparse.Namespace):
         # )
         projection.load_state_dict(proj_state_dict)
         # print(projection.state_dict())
-        decoder.load_state_dict(
-            torch.load(
-                os.path.join('models', f'{args.dataset}_{args.direction}', 'decoder', f'{args.decoder}.pth'),
-                map_location=device
-            )
-        )
+        # decoder.load_state_dict(
+        #     torch.load(
+        #         os.path.join('models', f'{args.dataset}_{args.direction}', 'decoder', f'{args.decoder}.pth'),
+        #         map_location=device
+        #     )
+        # )
+
+        if args.decoder == 'gpt-2':
+            decoder.load_pretrained(os.path.join('models', f'{args.dataset}_{args.direction}', 'decoder', f'{args.decoder}.pth'))
+        elif args.decoder == 'gemma':
+            decoder.load_pretrained(os.path.join('models', f'{args.dataset}_{args.direction}', 'decoder'))
 
         bleu = BLEU()
         chrf = CHRF()

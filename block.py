@@ -260,35 +260,38 @@ class GPT2Decoder(Decoder):
 class GemmaDecoder(Decoder):
     # device = torch.device(device)
 
-    def __init__(self, vocab_size: int):
+    def __init__(self, vocab_size: int, init_lora: bool=True):
         super().__init__()
 
         # self.tokenizer = tokenizer
 
-        bnb_config = BitsAndBytesConfig(
+        self.vocab_size = vocab_size
+
+        self.bnb_config = BitsAndBytesConfig(
             load_in_4bit=True,
             bnb_4bit_quant_type="nf4",
             bnb_4bit_compute_dtype=torch.bfloat16
         )
 
-        lora_config = LoraConfig(
-            r=8,
-            target_modules=["q_proj", "o_proj", "k_proj", "v_proj", "gate_proj", "up_proj", "down_proj"],
-            task_type="CAUSAL_LM",
-        )
-
         self.decoder = AutoModelForCausalLM.from_pretrained(
             'google/gemma-2b',
             torch_dtype=torch.bfloat16,
-            quantization_config=bnb_config,
+            quantization_config=self.bnb_config,
             device_map={"":0},
             token=os.environ['HF_TOKEN'],
         )
 
-        self.decoder = get_peft_model(self.decoder, lora_config)
+        if init_lora:
+            lora_config = LoraConfig(
+                r=8,
+                target_modules=["q_proj", "o_proj", "k_proj", "v_proj", "gate_proj", "up_proj", "down_proj"],
+                task_type="CAUSAL_LM",
+            )
+
+            self.decoder = get_peft_model(self.decoder, lora_config)
 
         # self.decoder = GPT2LMHeadModel.from_pretrained("openai-community/gpt2") #.to(self.device)
-        self.decoder.resize_token_embeddings(vocab_size)
+        self.decoder.resize_token_embeddings(self.vocab_size)
 
 
         # TODO: freeze Gemma's layers or not?????
@@ -311,18 +314,14 @@ class GemmaDecoder(Decoder):
         self.decoder.save_pretrained(model_dir_path)
 
     def load_pretrained(self, model_dir_path: str, is_trainable: bool=True):
-        bnb_config = BitsAndBytesConfig(
-            load_in_4bit=True,
-            bnb_4bit_quant_type="nf4",
-            bnb_4bit_compute_dtype=torch.bfloat16
-        )
+        # self.decoder = AutoModelForCausalLM.from_pretrained(
+        #     'google/gemma-2b',
+        #     torch_dtype=torch.bfloat16,
+        #     quantization_config=self.bnb_config,
+        #     device_map={"":0},
+        #     token=os.environ['HF_TOKEN'],
+        # )
 
-        self.decoder = AutoModelForCausalLM.from_pretrained(
-            'google/gemma-2b',
-            torch_dtype=torch.bfloat16,
-            quantization_config=bnb_config,
-            device_map={"":0},
-            token=os.environ['HF_TOKEN'],
-        )
+        # self.decoder.resize_token_embeddings(self.vocab_size)
 
         self.decoder = PeftModel.from_pretrained(self.decoder, model_dir_path, is_trainable=is_trainable)
