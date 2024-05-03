@@ -249,11 +249,11 @@ class GPT2Decoder(Decoder):
             model_path
         )
 
-    def load_pretrained(self, model_path: str):
+    def load_pretrained(self, model_path: str, device: torch.device):
         self.load_state_dict(
             torch.load(
                 model_path,
-                map_location=self.device
+                map_location=device
             )
         )
 

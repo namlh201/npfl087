@@ -18,16 +18,15 @@ parser.add_argument('--train', default=False, action='store_true', help='Train o
 
 args = parser.parse_args()
 
-import torch.utils
-import torch.utils.data
-from torchaudio.functional import edit_distance
-
 os.environ['HF_HOME'] = args.checkpoints_dir if args.checkpoints_dir else os.getcwd() + '/checkpoints'
 os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 
 from sacrebleu.metrics import BLEU, CHRF, TER
 import torch
 from torch import nn
+import torch.utils
+import torch.utils.data
+from torchaudio.functional import edit_distance
 from transformers import AutoFeatureExtractor, AutoTokenizer
 from transformers import get_cosine_schedule_with_warmup
 from transformers import logging
@@ -62,12 +61,12 @@ def train(
 
         valid_size = len(train_loader)
 
-        i = 0
+        # i = 0
 
         print(f'Epoch #{epoch + 1}:')
         for audio_feats, transcripts, translations in tqdm(train_loader):
-            if i == 3:
-                break
+            # if i == 3:
+            #     break
 
             try:
                 loss = train_step(
@@ -97,7 +96,7 @@ def train(
                 print()
                 continue
 
-            i += 1
+            # i += 1
 
         mean_loss = mean_loss / valid_size
 
@@ -396,12 +395,14 @@ def generate_one(
     # print(pred_transcripts, pred_transcripts.shape)
     # print(tokenizer.decode(pred_transcripts[0]))
 
-    translation_start_idx = pred_transcripts.tolist().index(tokenizer.get_added_vocab()['<|translation|>'])
+    # translation_start_idx = pred_transcripts.tolist().index(tokenizer.get_added_vocab()['<|translation|>'])
+    translation_start_idx = 0
 
     translation_tokens = pred_transcripts[translation_start_idx:-1].squeeze()
     # golden_tokens = padded_translations[0]
 
-    translation = tokenizer.decode(translation_tokens, skip_special_tokens=True)
+    # translation = tokenizer.decode(translation_tokens, skip_special_tokens=True)
+    translation = tokenizer.decode(translation_tokens, skip_special_tokens=False)
     # golden = translations[0]
 
     # wer = edit_distance(translation, golden) / len(golden)
@@ -414,7 +415,7 @@ def generate_one(
 def main(args: argparse.Namespace):
     feature_extractor = AutoFeatureExtractor.from_pretrained("facebook/hubert-large-ls960-ft")
 
-    tokenizer = get_tokenizer(args.decoder)
+    tokenizer, special_tokens = get_tokenizer(args.decoder)
     # print(tokenizer)
 
     encoder = Encoder().to(device)
@@ -426,16 +427,16 @@ def main(args: argparse.Namespace):
 
     projection = Projection(enc_hidden_size, dec_hidden_size).to(device)
 
-    audio_tok_id = tokenizer('<|audio|>')['input_ids'][0]
+    audio_tok_id = tokenizer(special_tokens['audio_token'])['input_ids'][0]
     audio_tok_id = torch.full((args.batch_size, ), audio_tok_id).to(device)
 
-    transcript_tok_id = tokenizer('<|transcript|>')['input_ids'][0]
+    transcript_tok_id = tokenizer(special_tokens['transcript_token'])['input_ids'][0]
     transcript_tok_id = torch.full((args.batch_size, ), transcript_tok_id).to(device)
 
-    translation_tok_id = tokenizer('<|translation|>')['input_ids'][0]
+    translation_tok_id = tokenizer(special_tokens['translation_token'])['input_ids'][0]
     translation_tok_id = torch.full((args.batch_size, ), translation_tok_id).to(device)
 
-    eot_tok_id = tokenizer('<|endoftext|>')['input_ids'][0]
+    eot_tok_id = tokenizer(special_tokens['eos_token'])['input_ids'][0]
     eot_tok_id = torch.full((args.batch_size, ), eot_tok_id).to(device)
 
     if args.train:
@@ -475,9 +476,13 @@ def main(args: argparse.Namespace):
         )
 
         if args.decoder == 'gpt-2':
-            decoder.save_pretrained(os.path.join('models', f'{args.dataset}_{args.direction}', 'decoder', f'{args.decoder}.pth'))
+            decoder.save_pretrained(
+                os.path.join('models', f'{args.dataset}_{args.direction}', 'decoder', f'{args.decoder}.pth')
+            )
         elif args.decoder == 'gemma':
-            decoder.save_pretrained(os.path.join('models', f'{args.dataset}_{args.direction}', 'decoder'))
+            decoder.save_pretrained(
+                os.path.join('models', f'{args.dataset}_{args.direction}', 'decoder', f'{args.decoder}')
+            )
         
         # torch.save(
         #     decoder.state_dict(),
@@ -513,15 +518,28 @@ def main(args: argparse.Namespace):
         # )
 
         if args.decoder == 'gpt-2':
-            decoder.load_pretrained(os.path.join('models', f'{args.dataset}_{args.direction}', 'decoder', f'{args.decoder}.pth'))
+            decoder.load_pretrained(
+                os.path.join('models', f'{args.dataset}_{args.direction}', 'decoder', f'{args.decoder}.pth'),
+                device=torch.device(device)
+            )
         elif args.decoder == 'gemma':
-            decoder.load_pretrained(os.path.join('models', f'{args.dataset}_{args.direction}', 'decoder'))
+            decoder.load_pretrained(
+                os.path.join('models', f'{args.dataset}_{args.direction}', 'decoder', f'{args.decoder}'),
+                is_trainable=False
+            )
 
         bleu = BLEU()
         chrf = CHRF()
         ter = TER()
 
+        # i = 0
+
         for audio_feats, transcripts, translations in tqdm(dev_loader):
+            # if i == 10:
+            #     break
+
+            # i += 1
+
             candidate = generate_one(
                 encoder,
                 projection,
@@ -551,6 +569,7 @@ def main(args: argparse.Namespace):
             print('transcript:', transcripts[0])
             print('translation:', candidate)
             print('golden:', translations[0])
+            print()
 
             # break
 

@@ -3,7 +3,7 @@ import os
 from torch import nn
 from torch.utils.data import Dataset
 from torchaudio.datasets import LIBRISPEECH
-from transformers import AutoTokenizer, GPT2Tokenizer
+from transformers import GemmaTokenizer, GPT2Tokenizer
 
 from block import Decoder, GPT2Decoder, GemmaDecoder
 from dataset import MUSTC
@@ -50,10 +50,32 @@ def get_tokenizer(decoder: str='gpt-2') -> nn.Module:
     if decoder == 'gpt-2':
         tokenizer = GPT2Tokenizer.from_pretrained("openai-community/gpt2")
     elif decoder == 'gemma':
-        tokenizer = AutoTokenizer.from_pretrained('google/gemma-2b', token=os.environ['HF_TOKEN'])
+        tokenizer = GemmaTokenizer.from_pretrained('google/gemma-2b', token=os.environ['HF_TOKEN'])
 
     tokenizer.add_special_tokens({
+        # 'unk_token': '<|endoftext|>',
+        # 'bos_token': '<|endoftext|>',
+        # 'eos_token': '<|endoftext|>',
+        # 'pad_token': '<|endoftext|>',
+        'unk_token': tokenizer.eos_token,
+        'bos_token': tokenizer.eos_token,
+        'eos_token': tokenizer.eos_token,
+        'pad_token': tokenizer.eos_token,
         'additional_special_tokens': SPECIAL_TOKENS
     })
 
-    return tokenizer
+    special_tokens = {
+        'unk_token': tokenizer.unk_token,
+        'bos_token': tokenizer.bos_token,
+        'eos_token': tokenizer.eos_token,
+        'pad_token': tokenizer.pad_token,
+        'audio_token': '<|audio|>',
+        'transcript_token': '<|transcript|>',
+        'translation_token': '<|translation|>'
+    }
+
+    tokenizer.add_bos_token = False
+
+    print(tokenizer)
+
+    return tokenizer, special_tokens
