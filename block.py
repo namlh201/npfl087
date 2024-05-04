@@ -285,7 +285,7 @@ class GemmaDecoder(Decoder):
             lora_config = LoraConfig(
                 r=8,
                 target_modules=["q_proj", "o_proj", "k_proj", "v_proj", "gate_proj", "up_proj", "down_proj"],
-                modules_to_save=["embed_tokens"]
+                modules_to_save=["embed_tokens"],
                 task_type="CAUSAL_LM",
             )
 
