@@ -281,18 +281,19 @@ class GemmaDecoder(Decoder):
             token=os.environ['HF_TOKEN'],
         )
 
+        self.decoder.resize_token_embeddings(self.vocab_size)
+
         if init_lora:
             lora_config = LoraConfig(
                 r=8,
-                target_modules=["q_proj", "o_proj", "k_proj", "v_proj", "gate_proj", "up_proj", "down_proj"],
-                modules_to_save=["embed_tokens"],
+                target_modules=["q_proj", "o_proj", "k_proj", "v_proj", "gate_proj", "up_proj", "down_proj", "embed_tokens"],
+                # modules_to_save=["embed_tokens"],
                 task_type="CAUSAL_LM",
             )
 
             self.decoder = get_peft_model(self.decoder, lora_config)
 
         # self.decoder = GPT2LMHeadModel.from_pretrained("openai-community/gpt2") #.to(self.device)
-        self.decoder.resize_token_embeddings(self.vocab_size)
 
 
         # TODO: freeze Gemma's layers or not?????
