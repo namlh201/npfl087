@@ -388,7 +388,7 @@ def main(args: argparse.Namespace):
             list(projection.parameters()) + list(decoder.parameters()),
             lr=1e-4,
         )
-        lr_scheduler = get_cosine_schedule_with_warmup(optimizer, 10, 100) #args.epochs * len(train_loader))
+        lr_scheduler = get_cosine_schedule_with_warmup(optimizer, 10, args.epochs * len(train_loader))
 
         encoder.train()
         projection.train()
