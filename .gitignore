@@ -2,5 +2,8 @@ __pycache__
 checkpoints
 data
 models
+*.json
+*.safetensors
 *.pth
 *.sh
+*.md

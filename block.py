@@ -286,7 +286,11 @@ class GemmaDecoder(Decoder):
         if init_lora:
             lora_config = LoraConfig(
                 r=8,
-                target_modules=["q_proj", "o_proj", "k_proj", "v_proj", "gate_proj", "up_proj", "down_proj", "embed_tokens"],
+                target_modules=[
+                    "q_proj", "o_proj", "k_proj", "v_proj",
+                    "gate_proj", "up_proj", "down_proj",
+                    "embed_tokens", "lm_head"
+                ],
                 # modules_to_save=["embed_tokens"],
                 task_type="CAUSAL_LM",
             )
@@ -305,6 +309,8 @@ class GemmaDecoder(Decoder):
     
     def get_input_embeddings(self):
         return self.decoder.get_input_embeddings()
+
+        # return self.decoder.base_model.model.model.embed_tokens
 
     def forward(self, **kwargs):
         return self.decoder(**kwargs)

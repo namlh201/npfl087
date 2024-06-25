@@ -57,25 +57,29 @@ def get_tokenizer(decoder: str='gpt-2') -> nn.Module:
         # 'bos_token': '<|endoftext|>',
         # 'eos_token': '<|endoftext|>',
         # 'pad_token': '<|endoftext|>',
-        'unk_token': tokenizer.eos_token,
-        'bos_token': tokenizer.eos_token,
-        'eos_token': tokenizer.eos_token,
-        'pad_token': tokenizer.eos_token,
+        # 'unk_token': tokenizer.eos_token,
+        # 'bos_token': tokenizer.eos_token,
+        # 'eos_token': tokenizer.eos_token,
+        # 'pad_token': tokenizer.eos_token,
         'additional_special_tokens': SPECIAL_TOKENS
     })
 
-    special_tokens = {
-        'unk_token': tokenizer.unk_token,
-        'bos_token': tokenizer.bos_token,
-        'eos_token': tokenizer.eos_token,
-        'pad_token': tokenizer.pad_token,
-        'audio_token': '<|audio|>',
-        'transcript_token': '<|transcript|>',
-        'translation_token': '<|translation|>'
+    added_vocab = tokenizer.get_added_vocab()
+
+    special_token_ids = {
+        'unk_token': tokenizer.unk_token_id,
+        'bos_token': tokenizer.bos_token_id,
+        'eos_token': tokenizer.eos_token_id,
+        'pad_token': tokenizer.pad_token_id,
+        'audio_token': added_vocab['<|audio|>'],
+        'transcript_token': added_vocab['<|transcript|>'],
+        'translation_token': added_vocab['<|translation|>']
     }
 
     tokenizer.add_bos_token = False
 
-    print(tokenizer)
+    # print(special_token_ids)
 
-    return tokenizer, special_tokens
+    # print(tokenizer.get_added_vocab())
+
+    return tokenizer, special_token_ids
