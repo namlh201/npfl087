@@ -109,8 +109,8 @@ def train(
                 print(translations)
                 print(e)
                 print()
-                # continue
-                break
+                continue
+                # break
 
             # i += 1
 
