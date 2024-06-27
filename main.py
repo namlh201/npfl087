@@ -7,7 +7,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--batch_size', default=1, type=int, help='Batch size.')
 parser.add_argument('--epochs', default=5, type=int, help='Number of epochs.')
 parser.add_argument('--dataset', default='MUSTC', type=str, choices=['MUSTC', 'LIBRISPEECH'], required=True, help='Dataset name.')
-parser.add_argument('--direction', default='en-cs', type=str, choices=['en-en', 'en-cs'], required=True, help='Translation direction.')
+parser.add_argument('--direction', default='en-cs', type=str, choices=['en-en', 'en-cs', 'en-vi', 'en-de'], required=True, help='Translation direction.')
 parser.add_argument('--train_subset', default='train', type=str, required=True, help='Train subset.')
 parser.add_argument('--dev_subset', default='dev', type=str, required=True, help='Dev subset.')
 parser.add_argument('--decoder', default='gpt-2', type=str, choices=['gpt-2', 'gemma'], required=True, help='Decoder name.')
@@ -25,13 +25,14 @@ os.environ['HF_HOME'] = args.checkpoints_dir if args.checkpoints_dir else os.get
 # os.environ['TRANSFORMERS_OFFLINE'] = '1'
 # os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 
+from mbr import MBRConfig
 from sacrebleu.metrics import BLEU, CHRF, TER
 import torch
 from torch import nn
 import torch.utils
 import torch.utils.data
 from torchaudio.functional import edit_distance
-from transformers import AutoFeatureExtractor, AutoTokenizer
+from transformers import AutoFeatureExtractor, AutoTokenizer, GenerationConfig
 from transformers import get_cosine_schedule_with_warmup
 from transformers import logging
 from tqdm import tqdm
@@ -104,11 +105,11 @@ def train(
             except Exception as e:
                 valid_size -= 1
 
-                print(valid_size)
-                print(transcripts)
-                print(translations)
-                print(e)
-                print()
+                # print(valid_size)
+                # print(transcripts)
+                # print(translations)
+                # print(e)
+                # print()
                 continue
                 # break
 
@@ -241,7 +242,7 @@ def generate_one(
     audio_feats: torch.Tensor,
     # transcripts: list[str],
     # translations: list[str],
-    special_token_ids: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
+    special_token_ids: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
 ) -> None:
     encoder.eval()
     projection.eval()
@@ -254,12 +255,12 @@ def generate_one(
 
     audio_feats = audio_feats.to(device)
 
-    print(audio_feats.shape)
+    # print(audio_feats.shape)
 
     audio_hidden_feats = encoder(audio_feats)
-    print(audio_hidden_feats.shape)
+    # print(audio_hidden_feats.shape)
     audio_hidden_feats = projection(audio_hidden_feats)
-    print(audio_hidden_feats.shape)
+    # print(audio_hidden_feats.shape)
 
     # encoded_transcripts = list(
     #     map(
@@ -305,47 +306,81 @@ def generate_one(
     input_feats = input_feats.bfloat16() if args.decoder == 'gemma' else input_feats
     input_feats = input_feats.to(device)
 
-    print(input_feats.shape)
+    # print(input_feats.shape)
 
     attention_masks = torch.ones((input_feats.shape[0], input_feats.shape[1]))
     attention_masks = attention_masks.to(device)
 
-    pred_transcripts = decoder.generate(
-        inputs_embeds=input_feats,
-        attention_mask=attention_masks,
-        num_beams=2,
+    gen_config = GenerationConfig(
+        num_beams=4,
+        num_return_sequences=4,
         max_length=1024,  
-        repetition_penalty=2.5, 
-        length_penalty=1.0, 
+        # repetition_penalty=2.5, 
+        # length_penalty=1.0, 
         early_stopping=True,
-        # pad_token_id=tokenizer.pad_token_id
     )
 
-    print(pred_transcripts.shape)
+    # mbr_config = MBRConfig(
+    #     num_samples=10,
+    #     metric="chrf",
+    # )
 
-    pred_transcripts = pred_transcripts.squeeze()
+    pred_transcripts_list = decoder.generate(
+        inputs_embeds=input_feats,
+        attention_mask=attention_masks,
+        generation_config=gen_config,
+        # num_beams=2,
+        # max_length=1024,  
+        # repetition_penalty=2.5, 
+        # length_penalty=1.0, 
+        # early_stopping=True,
+        # pad_token_id=tokenizer.pad_token_id
+        # mbr_config=mbr_config,
+        # tokenizer=tokenizer
+    )
 
-    # print('input length =', input_feats.shape[1])
-    # print(pred_transcripts, pred_transcripts.shape)
-    # print(tokenizer.decode(pred_transcripts[0]))
+    # pred_transcripts = decoder.generate(
+    #     inputs_embeds=input_feats,
+    #     attention_mask=attention_masks,
+    #     max_length=1024,
+    #     mbr_config=mbr_config,
+    #     tokenizer=tokenizer
+    # )
 
-    # translation_start_idx = pred_transcripts.tolist().index(tokenizer.get_added_vocab()['<|translation|>'])
-    translation_start_idx = 0
+    # print(pred_transcripts.shape)
 
-    translation_tokens = pred_transcripts[translation_start_idx:].squeeze()
-    # golden_tokens = padded_translations[0]
+    transcripts = []
+    translations = []
 
-    # print(translation_tokens)
+    for pred_transcripts in pred_transcripts_list:
+        pred_transcripts = pred_transcripts.squeeze()
 
-    # translation = tokenizer.decode(translation_tokens, skip_special_tokens=True)
-    translation = tokenizer.decode(translation_tokens, skip_special_tokens=False)
+        # print('input length =', input_feats.shape[1])
+        # print(pred_transcripts, pred_transcripts.shape)
+        # print(tokenizer.decode(pred_transcripts[0]))
+
+        translation_start_idx = pred_transcripts.tolist().index(tokenizer.get_added_vocab()['<|translation|>'])
+        # translation_start_idx = 0
+
+        transcript_tokens = pred_transcripts[:translation_start_idx].squeeze()
+        translation_tokens = pred_transcripts[translation_start_idx:-1].squeeze()
+        # golden_tokens = padded_translations[0]
+
+        # print(translation_tokens)
+
+        transcript = tokenizer.decode(transcript_tokens, skip_special_tokens=True)
+        translation = tokenizer.decode(translation_tokens, skip_special_tokens=True)
+
+        transcripts.append(transcript)
+        translations.append(translation)
+    # translation = tokenizer.decode(translation_tokens, skip_special_tokens=False)
     # golden = translations[0]
 
     # wer = edit_distance(translation, golden) / len(golden)
 
     # loss = translation_loss.item()
 
-    return translation
+    return transcripts, translations
 
 
 def main(args: argparse.Namespace):
@@ -358,7 +393,7 @@ def main(args: argparse.Namespace):
     enc_hidden_size = encoder.get_hidden_size()
 
     # decoder = GPT2Decoder(len(tokenizer)).to(device)
-    decoder = get_decoder(args.decoder, len(tokenizer), init=args.init_lora).to(device)
+    decoder = get_decoder(args.decoder, len(tokenizer), init=args.init_lora, mbr_decode=False).to(device)
     dec_hidden_size = decoder.get_hidden_size()
 
     projection = Projection(enc_hidden_size, dec_hidden_size).to(device)
@@ -478,12 +513,12 @@ def main(args: argparse.Namespace):
         i = 0
 
         for audio_feats, transcripts, translations in tqdm(dev_loader):
-            if i == 10:
-                break
+            # if i == 10:
+            #     break
 
             i += 1
 
-            candidate = generate_one(
+            pred_transcript, candidate = generate_one(
                 encoder,
                 projection,
                 decoder,
@@ -502,15 +537,16 @@ def main(args: argparse.Namespace):
             # }
 
             score = {
-                'wer': edit_distance(candidate, transcripts[0]) / len(transcripts[0]),
-                'bleu': bleu.corpus_score([candidate], [transcripts]).score,
-                'chrf': chrf.corpus_score([candidate], [transcripts]).score,
-                'ter': ter.corpus_score([candidate], [transcripts]).score,
+                # 'wer': edit_distance(candidate, transcripts[0]) / len(transcripts[0]),
+                'bleu': bleu.corpus_score(candidate, [transcripts]).score,
+                'chrf': chrf.corpus_score(candidate, [transcripts]).score,
+                'ter': ter.corpus_score(candidate, [transcripts]).score,
             }
 
             print(i)
             print('score:', score)
             print('transcript:', transcripts[0])
+            print('predicted transcript:', pred_transcript)
             print('translation:', candidate)
             print('golden:', translations[0])
             print()
