@@ -25,7 +25,7 @@ os.environ['HF_HOME'] = args.checkpoints_dir if args.checkpoints_dir else os.get
 # os.environ['TRANSFORMERS_OFFLINE'] = '1'
 # os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 
-from mbr import MBRConfig
+# from mbr import MBRConfig
 from sacrebleu.metrics import BLEU, CHRF, TER
 import torch
 from torch import nn
