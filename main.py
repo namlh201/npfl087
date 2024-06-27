@@ -393,7 +393,8 @@ def main(args: argparse.Namespace):
     enc_hidden_size = encoder.get_hidden_size()
 
     # decoder = GPT2Decoder(len(tokenizer)).to(device)
-    decoder = get_decoder(args.decoder, len(tokenizer), init=args.init_lora, mbr_decode=False).to(device)
+    # decoder = get_decoder(args.decoder, len(tokenizer), init=args.init_lora, mbr_decode=False).to(device)
+    decoder = get_decoder(args.decoder, len(tokenizer), init=args.init_lora).to(device)
     dec_hidden_size = decoder.get_hidden_size()
 
     projection = Projection(enc_hidden_size, dec_hidden_size).to(device)

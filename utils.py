@@ -42,7 +42,8 @@ def get_decoder(decoder: str, vocab_size: int, init: bool=True, mbr_decode: bool
     if decoder == 'gpt-2':
         return GPT2Decoder(vocab_size)
     elif decoder == 'gemma':
-        return GemmaDecoder(vocab_size, init_lora=init, mbr_decode=mbr_decode)
+        return GemmaDecoder(vocab_size, init_lora=init)
+        # return GemmaDecoder(vocab_size, init_lora=init, mbr_decode=mbr_decode)
 
 def get_tokenizer(decoder: str='gpt-2') -> nn.Module:
     SPECIAL_TOKENS = ['<|audio|>', '<|transcript|>', '<|translation|>']
