@@ -12,7 +12,7 @@ def get_dataset(name: str, direction: str, subset: str, root: str=None) -> Datas
     _DATA_DIR = os.path.join(os.getcwd(), 'data')
     _VALID = {
         'MUSTC': {
-            'direction': ['en-cs'],
+            'direction': ['en-cs', 'en-vi', 'en-de'],
             'subset': ['train', 'dev'],
         },
         'LIBRISPEECH': {
@@ -38,11 +38,11 @@ def get_dataset(name: str, direction: str, subset: str, root: str=None) -> Datas
     elif name == 'LIBRISPEECH':
         return LIBRISPEECH(root, url=subset, download=True)
 
-def get_decoder(decoder: str, vocab_size: int, init: bool=True) -> Decoder:
+def get_decoder(decoder: str, vocab_size: int, init: bool=True, mbr_decode: bool=False) -> Decoder:
     if decoder == 'gpt-2':
         return GPT2Decoder(vocab_size)
     elif decoder == 'gemma':
-        return GemmaDecoder(vocab_size, init_lora=init)
+        return GemmaDecoder(vocab_size, init_lora=init, mbr_decode=mbr_decode)
 
 def get_tokenizer(decoder: str='gpt-2') -> nn.Module:
     SPECIAL_TOKENS = ['<|audio|>', '<|transcript|>', '<|translation|>']
