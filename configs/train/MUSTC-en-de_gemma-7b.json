@@ -1,0 +1,9 @@
+{
+    "batch_size": 1,
+    "epochs": 10,
+    "dataset": "MUSTC",
+    "direction": "en-de",
+    "train_subset": "train",
+    "decoder": "gemma-7b",
+    "lr": 1e-4
+}
