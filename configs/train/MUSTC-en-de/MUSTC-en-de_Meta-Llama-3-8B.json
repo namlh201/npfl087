@@ -1,9 +1,7 @@
 {
-    "batch_size": 1,
-    "epochs": 10,
     "dataset": "MUSTC",
     "direction": "en-de",
     "train_subset": "train",
-    "decoder": "Llama-2-7b-hf",
+    "decoder": "Meta-Llama-3-8B",
     "lr": 1e-4
 }
