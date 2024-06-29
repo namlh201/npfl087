@@ -167,7 +167,7 @@ def train_step(
         [torch.tensor(transcript) for transcript in transcripts],
         batch_first=True
     ).to(device)
-    embeded_transcripts = embed(padded_transcripts).view((config.batch_size, padded_transcripts.shape[1], -1))
+    embeded_transcripts = embed(padded_transcripts).view((args.batch_size, padded_transcripts.shape[1], -1))
 
     translations = list(
         map(
@@ -179,7 +179,7 @@ def train_step(
         [torch.tensor(translation) for translation in translations],
         batch_first=True
     ).to(device)
-    embeded_translations = embed(padded_translations).view((config.batch_size, padded_translations.shape[1], -1))
+    embeded_translations = embed(padded_translations).view((args.batch_size, padded_translations.shape[1], -1))
 
     embeded_bos_token = embed(bos_tok_id).view((args.batch_size, 1, -1))
     embeded_audio_token = embed(audio_tok_id).view((args.batch_size, 1, -1))
@@ -249,22 +249,22 @@ def main(args: argparse.Namespace, config: SimpleNamespace):
     projection = Projection(enc_hidden_size, dec_hidden_size).to(device)
 
     bos_tok_id = special_token_ids['bos_token']
-    bos_tok_id = torch.full((config.batch_size, ), bos_tok_id).to(device)
+    bos_tok_id = torch.full((args.batch_size, ), bos_tok_id).to(device)
 
     audio_tok_id = special_token_ids['audio_token']
-    audio_tok_id = torch.full((config.batch_size, ), audio_tok_id).to(device)
+    audio_tok_id = torch.full((args.batch_size, ), audio_tok_id).to(device)
 
     transcript_tok_id = special_token_ids['transcript_token']
-    transcript_tok_id = torch.full((config.batch_size, ), transcript_tok_id).to(device)
+    transcript_tok_id = torch.full((args.batch_size, ), transcript_tok_id).to(device)
 
     translation_tok_id = special_token_ids['translation_token']
-    translation_tok_id = torch.full((config.batch_size, ), translation_tok_id).to(device)
+    translation_tok_id = torch.full((args.batch_size, ), translation_tok_id).to(device)
 
     eos_tok_id = special_token_ids['eos_token']
-    eos_tok_id = torch.full((config.batch_size, ), eos_tok_id).to(device)
+    eos_tok_id = torch.full((args.batch_size, ), eos_tok_id).to(device)
 
-    train = get_dataset(name=config.dataset, direction=config.direction, subset=config.train_subset, root=args.data_dir)
-    train_loader = DataLoader(train, feature_extractor, batch_size=config.batch_size)
+    train_data = get_dataset(name=config.dataset, direction=config.direction, subset=config.train_subset, root=args.data_dir)
+    train_loader = DataLoader(train_data, feature_extractor, batch_size=args.batch_size)
 
     print(decoder)
 
@@ -291,7 +291,7 @@ def main(args: argparse.Namespace, config: SimpleNamespace):
         lr_scheduler,
         train_loader=train_loader,
         dev_loader=None,
-        num_epochs=config.epochs,
+        num_epochs=args.epochs,
         special_token_ids=(bos_tok_id, audio_tok_id, transcript_tok_id, translation_tok_id, eos_tok_id)
     )
 
@@ -316,6 +316,6 @@ if __name__ == '__main__':
 
     now = datetime.now()
     now = now.strftime('%Y%m%d_%H%M%S')
-    run = wandb.init(config=config, project=args.config.split('_')[0], name=f'{config.model}_{now}')
+    run = wandb.init(config=config, project=args.config.split('_')[0], name=f'{config.decoder}_{now}')
 
     main(args, config)
