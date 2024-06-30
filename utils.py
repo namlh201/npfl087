@@ -67,7 +67,7 @@ def get_tokenizer(decoder: str='gpt-2') -> tuple[nn.Module, dict[str, int]]:
     elif 'llama' in decoder.lower():
         tokenizer = LlamaTokenizer.from_pretrained(f'meta-llama/{decoder}', token=os.environ['HF_TOKEN'])
     elif 'mistral' in decoder.lower():
-        tokenizer = AutoTokenizer.from_pretrained(f'mistralai/{decoder}')
+        tokenizer = AutoTokenizer.from_pretrained(f'mistralai/{decoder}', token=os.environ['HF_TOKEN'])
 
     tokenizer.add_special_tokens({
         # 'unk_token': '<|endoftext|>',

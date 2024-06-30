@@ -64,7 +64,8 @@ def train(
         # step = 0
 
         print(f'Epoch #{epoch + 1}:')
-        for audio_feats, transcripts, translations in tqdm(train_loader):
+        data_and_progress = tqdm(train_loader, leave=False)
+        for audio_feats, transcripts, translations in data_and_progress:
             # if i == 100:
             #     break
 
@@ -91,12 +92,16 @@ def train(
                 optimizer.step()
                 lr_scheduler.step()
 
+                data_and_progress.set_description(f'loss = {loss.item()}')
+
                 # if ((i + 1) % grad_accum_int == 0) or (i + 1 == len(train_loader)):
                 #     optimizer.step()
                 #     lr_scheduler.step()
                 #     optimizer.zero_grad()
             except Exception as e:
                 valid_size -= 1
+
+                data_and_progress.set_description(f'loss = inf')
 
                 print(valid_size)
                 print(transcripts)
@@ -197,7 +202,7 @@ def train_step(
         ),
         dim=1
     )
-    input_feats = input_feats.bfloat16() if args.decoder != 'gpt-2' else input_feats
+    input_feats = input_feats.bfloat16() if config.decoder != 'gpt-2' else input_feats
     input_feats = input_feats.to(device)
 
     # translation_attention_masks = [
