@@ -11,6 +11,7 @@ parser.add_argument('--epochs', default=5, type=int, help='Number of epochs.')
 parser.add_argument('--config', type=str, required=True, help='Config file.')
 parser.add_argument('--data_dir', default=None, type=str, help='Data directory.')
 parser.add_argument('--checkpoints_dir', default=None, type=str, help='Pretrained models checkpoint directory.')
+parser.add_argument('--debug', default=False, action='store_true', help='Debug.')
 
 args = parser.parse_args()
 
@@ -92,7 +93,7 @@ def train(
                 optimizer.step()
                 lr_scheduler.step()
 
-                data_and_progress.set_description(f'loss = {loss.item()}')
+                data_and_progress.set_description(f'loss = {loss.item()}', refresh=False)
 
                 # if ((i + 1) % grad_accum_int == 0) or (i + 1 == len(train_loader)):
                 #     optimizer.step()
@@ -101,13 +102,14 @@ def train(
             except Exception as e:
                 valid_size -= 1
 
-                data_and_progress.set_description(f'loss = inf')
+                data_and_progress.set_description(f'loss = inf', refresh=False)
 
-                print(valid_size)
-                print(transcripts)
-                print(translations)
-                print(e)
-                print()
+                if args.debug:
+                    print(valid_size)
+                    print(transcripts)
+                    print(translations)
+                    print(e)
+                    print()
                 continue
                 # break
 
