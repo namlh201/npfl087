@@ -12,6 +12,7 @@ parser.add_argument('--config', type=str, required=True, help='Config file.')
 parser.add_argument('--data_dir', default=None, type=str, help='Data directory.')
 parser.add_argument('--checkpoints_dir', default=None, type=str, help='Pretrained models checkpoint directory.')
 parser.add_argument('--debug', default=False, action='store_true', help='Debug.')
+parser.add_argument('--randomized_factor', default=None, type=float, help='Factor of randomized replacing audio with literal transcript.')
 
 args = parser.parse_args()
 
@@ -19,6 +20,7 @@ args.data_dir = args.data_dir if args.data_dir else os.getcwd() + '/data'
 os.environ['HF_HOME'] = args.checkpoints_dir if args.checkpoints_dir else os.getcwd() + '/checkpoints'
 
 from dotenv import load_dotenv
+import numpy as np
 import torch
 from torch import nn
 import torch.utils
@@ -71,16 +73,28 @@ def train(
             #     break
 
             try:
-                loss = train_step(
-                    encoder,
-                    projection,
-                    decoder,
-                    tokenizer,
-                    audio_feats=audio_feats,
-                    transcripts=transcripts,
-                    translations=translations,
-                    special_token_ids=special_token_ids
-                )
+                if args.randomized_factor and np.random.uniform() < args.randomized_factor:
+                    loss = train_step_randomized(
+                        # encoder,
+                        # projection,
+                        decoder,
+                        tokenizer,
+                        # audio_feats=audio_feats,
+                        transcripts=transcripts,
+                        translations=translations,
+                        special_token_ids=special_token_ids
+                    )
+                else:
+                    loss = train_step(
+                        encoder,
+                        projection,
+                        decoder,
+                        tokenizer,
+                        audio_feats=audio_feats,
+                        transcripts=transcripts,
+                        translations=translations,
+                        special_token_ids=special_token_ids
+                    )
 
                 mean_loss += loss.item()
 
@@ -241,6 +255,102 @@ def train_step(
 
     return loss
 
+def train_step_randomized(
+    # encoder: PreTrainedModel,
+    # projection: nn.Module,
+    decoder: PreTrainedModel,
+    tokenizer: PreTrainedTokenizer,
+    # audio_feats: torch.Tensor,
+    transcripts: list[str],
+    translations: list[str],
+    special_token_ids: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
+) -> torch.Tensor:
+    bos_tok_id, audio_tok_id, transcript_tok_id, translation_tok_id, eos_tok_id = special_token_ids
+    embed = decoder.get_input_embeddings()
+
+    # audio_feats = audio_feats.to(device)
+
+    # # audio_attention_masks = torch.ones_like(audio_feats).to(device)
+    # audio_hidden_feats = encoder(audio_feats) #, attention_mask=audio_attention_masks)
+    # audio_hidden_feats = projection(audio_hidden_feats)
+
+    transcripts = list(
+        map(
+            lambda transcript: tokenizer(transcript)['input_ids'],
+            transcripts
+        )
+    )
+    padded_transcripts = nn.utils.rnn.pad_sequence(
+        [torch.tensor(transcript) for transcript in transcripts],
+        batch_first=True
+    ).to(device)
+    embeded_transcripts = embed(padded_transcripts).view((args.batch_size, padded_transcripts.shape[1], -1))
+
+    translations = list(
+        map(
+            lambda translation: tokenizer(translation)['input_ids'],
+            translations
+        )
+    )
+    padded_translations = nn.utils.rnn.pad_sequence(
+        [torch.tensor(translation) for translation in translations],
+        batch_first=True
+    ).to(device)
+    embeded_translations = embed(padded_translations).view((args.batch_size, padded_translations.shape[1], -1))
+
+    embeded_bos_token = embed(bos_tok_id).view((args.batch_size, 1, -1))
+    embeded_audio_token = embed(audio_tok_id).view((args.batch_size, 1, -1))
+    embeded_transcript_token = embed(transcript_tok_id).view((args.batch_size, 1, -1))
+    embeded_translation_token = embed(translation_tok_id).view((args.batch_size, 1, -1))
+    embeded_eos_token = embed(eos_tok_id).view((args.batch_size, 1, -1))
+
+    input_feats = torch.cat(
+        (
+            embeded_bos_token, \
+            embeded_audio_token, embeded_transcripts, \
+            embeded_transcript_token, embeded_transcripts, \
+            embeded_translation_token, embeded_translations, \
+            embeded_eos_token
+        ),
+        dim=1
+    )
+    input_feats = input_feats.bfloat16() if config.decoder != 'gpt-2' else input_feats
+    input_feats = input_feats.to(device)
+
+    # translation_attention_masks = [
+    #     [1] * input_feats.shape[0]
+    # ]
+    translation_labels = [
+        [-100] * (embeded_bos_token.shape[1] + embeded_audio_token.shape[1] + embeded_transcripts.shape[1] + embeded_transcript_token.shape[1]) + \
+        # embeded_transcripts.shape[1] + embeded_translation_token.shape[1]) + \
+        transcripts[0] + \
+        [translation_tok_id.tolist()[0]] + \
+        translations[0] + \
+        [eos_tok_id.tolist()[0]]
+    ]
+
+    # print(translation_labels)
+    # translation_attention_masks = torch.tensor(translation_attention_masks).view((args.batch_size, -1)).to(device)
+    translation_labels = torch.tensor(translation_labels).view((args.batch_size, -1)).to(device)
+
+    translation_output = decoder(
+        inputs_embeds=input_feats,
+        # attention_mask=translation_attention_masks,
+        labels=translation_labels
+    )
+
+    translation_loss = translation_output.loss
+
+    loss = translation_loss
+
+    # beg = embeded_bos_token.shape[1] + embeded_audio_token.shape[1] + audio_hidden_feats.shape[1] + embeded_transcript_token.shape[1]
+
+    # print(loss)
+    # print(translation_labels)
+    # print(tokenizer.decode(translation_labels.tolist()[0][beg:]))
+
+    return loss
+
 def main(args: argparse.Namespace, config: SimpleNamespace):
     feature_extractor = AutoFeatureExtractor.from_pretrained("facebook/hubert-large-ls960-ft")
 
@@ -317,12 +427,18 @@ def main(args: argparse.Namespace, config: SimpleNamespace):
         )
 
 if __name__ == '__main__':
+    np.random.seed(42)
+
     config = get_config(args.config)
 
     wandb.login(key=os.getenv('WANDB_TOKEN'))
 
     now = datetime.now()
     now = now.strftime('%Y%m%d_%H%M%S')
-    run = wandb.init(config=config, project=f'{config.dataset}-{config.direction}_{config.decoder}', name=f'{config.decoder}_{now}')
+    run = wandb.init(
+        config=config,
+        project=f'{config.dataset}-{config.direction}_{config.decoder}',
+        name=f'{config.decoder}_{now}'
+    )
 
     main(args, config)
