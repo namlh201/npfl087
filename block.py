@@ -93,14 +93,14 @@ class Projection(nn.Module):
         return self.project(x)
 
 class Decoder(nn.Module):
-    def __init__(self):
-        self.decoder = None
+    # def __init__(self):
+    #     self.decoder = None
 
-    def forward(self, **kwargs):
-        return self.decoder(**kwargs)
+    # def forward(self, **kwargs):
+    #     return self.decoder(**kwargs)
     
-    def generate(self, **kwargs):
-        return self.decoder.generate(**kwargs)
+    # def generate(self, **kwargs):
+    #     return self.decoder.generate(**kwargs)
 
     def get_hidden_size(self) -> int:
         pass
@@ -132,11 +132,11 @@ class GPT2Decoder(Decoder):
     def get_input_embeddings(self):
         return self.decoder.get_input_embeddings()
 
-    # def forward(self, **kwargs):
-    #     return self.decoder(**kwargs)
+    def forward(self, **kwargs):
+        return self.decoder(**kwargs)
     
-    # def generate(self, **kwargs):
-    #     return self.decoder.generate(**kwargs)
+    def generate(self, **kwargs):
+        return self.decoder.generate(**kwargs)
     
     def save_pretrained(self, model_path: str):
         torch.save(
@@ -221,6 +221,12 @@ class GemmaDecoder(Decoder):
         return self.decoder.get_input_embeddings()
 
         # return self.decoder.base_model.model.model.embed_tokens
+
+    def forward(self, **kwargs):
+        return self.decoder(**kwargs)
+    
+    def generate(self, **kwargs):
+        return self.decoder.generate(**kwargs)
     
     def save_pretrained(self, model_dir_path: str):
         self.decoder.save_pretrained(model_dir_path)
@@ -283,7 +289,13 @@ class LlamaDecoder(Decoder):
         return self.decoder.get_input_embeddings()
 
         # return self.decoder.base_model.model.model.embed_tokens
+
+    def forward(self, **kwargs):
+        return self.decoder(**kwargs)
     
+    def generate(self, **kwargs):
+        return self.decoder.generate(**kwargs)
+
     def save_pretrained(self, model_dir_path: str):
         self.decoder.save_pretrained(model_dir_path)
 
@@ -345,7 +357,13 @@ class MistralDecoder(Decoder):
         return self.decoder.get_input_embeddings()
 
         # return self.decoder.base_model.model.model.embed_tokens
-    
+
+    def forward(self, **kwargs):
+        return self.decoder(**kwargs)
+
+    def generate(self, **kwargs):
+        return self.decoder.generate(**kwargs)
+
     def save_pretrained(self, model_dir_path: str):
         self.decoder.save_pretrained(model_dir_path)
 
