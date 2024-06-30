@@ -316,6 +316,6 @@ if __name__ == '__main__':
 
     now = datetime.now()
     now = now.strftime('%Y%m%d_%H%M%S')
-    run = wandb.init(config=config, project=args.config.split('_')[0], name=f'{config.decoder}_{now}')
+    run = wandb.init(config=config, project=f'{config.dataset}-{config.direction}_{config.decoder}', name=f'{config.decoder}_{now}')
 
     main(args, config)
