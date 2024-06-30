@@ -98,11 +98,11 @@ def train(
             except Exception as e:
                 valid_size -= 1
 
-                # print(valid_size)
-                # print(transcripts)
-                # print(translations)
-                # print(e)
-                # print()
+                print(valid_size)
+                print(transcripts)
+                print(translations)
+                print(e)
+                print()
                 continue
                 # break
 
