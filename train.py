@@ -272,7 +272,7 @@ def main(args: argparse.Namespace, config: SimpleNamespace):
         list(projection.parameters()) + list(decoder.parameters()),
         lr=config.lr,
     )
-    lr_scheduler = get_cosine_schedule_with_warmup(optimizer, 1000, config.epochs * len(train_loader))
+    lr_scheduler = get_cosine_schedule_with_warmup(optimizer, 1000, args.epochs * len(train_loader))
 
     encoder.train()
     projection.train()
