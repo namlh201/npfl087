@@ -285,16 +285,19 @@ def main(args: argparse.Namespace, config: SimpleNamespace):
 
         i += 1
 
-        pred_transcript, candidate = generate_one(
-            encoder,
-            projection,
-            decoder,
-            tokenizer,
-            audio_feats=audio_feats,
-            # transcripts=transcripts,
-            # translations=translations,
-            special_token_ids=(bos_tok_id, audio_tok_id, transcript_tok_id, translation_tok_id, eos_tok_id)
-        )
+        try:
+            pred_transcript, candidate = generate_one(
+                encoder,
+                projection,
+                decoder,
+                tokenizer,
+                audio_feats=audio_feats,
+                # transcripts=transcripts,
+                # translations=translations,
+                special_token_ids=(bos_tok_id, audio_tok_id, transcript_tok_id, translation_tok_id, eos_tok_id)
+            )
+        except Exception as e:
+            candidate = ['']
 
         # score = {
         #     'wer': edit_distance(candidate, translations[0]) / len(translations[0]),
