@@ -111,13 +111,13 @@ def generate_one(
 
     # print(input_feats.shape)
 
-    attention_masks = torch.ones((input_feats.shape[0], input_feats.shape[1]))
-    attention_masks = attention_masks.to(device)
+    # attention_masks = torch.ones((input_feats.shape[0], input_feats.shape[1]))
+    # attention_masks = attention_masks.to(device)
 
     gen_config = GenerationConfig(
         num_beams=2,
         num_return_sequences=1,
-        max_length=1024,
+        max_length=4096,
         do_sample=True,
         # repetition_penalty=2.5, 
         # length_penalty=1.0, 
@@ -131,7 +131,7 @@ def generate_one(
 
     pred_transcripts_list = decoder.generate(
         inputs_embeds=input_feats,
-        attention_mask=attention_masks,
+        # attention_mask=attention_masks,
         generation_config=gen_config,
         # num_beams=2,
         # max_length=1024,  
