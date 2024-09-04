@@ -81,6 +81,8 @@ class Encoder(nn.Module):
 
         # hidden = self.project(hidden)
 
+        del feats
+
         return hidden
     
 class Projection(nn.Module):
@@ -94,6 +96,7 @@ class Projection(nn.Module):
 
 class Decoder(nn.Module):
     # def __init__(self):
+    #     super().__init__()
     #     self.decoder = None
 
     # def forward(self, **kwargs):
@@ -173,7 +176,7 @@ class GemmaDecoder(Decoder):
         #         token=os.environ['HF_TOKEN'],
         #     )
         # else:
-        if '2' in model_name:
+        if 'gemma-2-' in model_name:
             self.decoder = Gemma2ForCausalLM.from_pretrained(
                 f'google/{model_name}',
                 torch_dtype=torch.bfloat16,

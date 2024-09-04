@@ -1,0 +1,8 @@
+{
+    "dataset": "MUSTC",
+    "direction": "en-de",
+    "test_subset": "test",
+    "dev_subset": "dev",
+    "decoder": "Mistral-7B-v0.1",
+    "lr": 1e-4
+}

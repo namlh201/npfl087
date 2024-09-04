@@ -1,0 +1,8 @@
+{
+    "dataset": "MUSTC",
+    "direction": "en-de",
+    "test_subset": "test",
+    "dev_subset": "dev",
+    "decoder": "Llama-2-7b-hf",
+    "lr": 1e-4
+}
