@@ -21,7 +21,7 @@ def get_dataset(name: str, direction: str, subset: str, root: str=None) -> Datas
     _VALID = {
         'MUSTC': {
             'direction': ['en-cs', 'en-vi', 'en-de', 'en-ja', 'en-zh'],
-            'subset': ['train', 'dev'],
+            'subset': ['train', 'dev', 'test'],
         },
         'LIBRISPEECH': {
             'direction': ['en-en'],
