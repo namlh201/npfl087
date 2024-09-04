@@ -297,6 +297,7 @@ def main(args: argparse.Namespace, config: SimpleNamespace):
                 special_token_ids=(bos_tok_id, audio_tok_id, transcript_tok_id, translation_tok_id, eos_tok_id)
             )
         except Exception as e:
+            print(e)
             candidate = ['']
 
         # score = {
@@ -323,7 +324,7 @@ def main(args: argparse.Namespace, config: SimpleNamespace):
 
         # break
 
-        file_id = f"{misc['talk_id']}-{misc['chunk_id']}"
+        file_id = f"{misc[0]['talk_id']}-{misc[0]['chunk_id']}"
 
         # print(f'{file_id}\t{transcripts[0]}', file=src_f)
         for _candidate in candidate:
