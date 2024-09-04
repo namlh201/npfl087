@@ -31,10 +31,12 @@ class DataLoader(torch.utils.data.DataLoader):
             waveforms = list(map(lambda data: data[0][0], batch))
             transcripts = list(map(lambda data: data[2], batch))
             translations = transcripts
+            misc = []
         elif self.dataset_name == 'MUSTC':
             waveforms = list(map(lambda data: data[0], batch))
             transcripts = list(map(lambda data: data[1], batch))
             translations = list(map(lambda data: data[2], batch))
+            misc = list(map(lambda data: data[3], batch))
 
         audio_feats = list(
             map(
@@ -45,4 +47,4 @@ class DataLoader(torch.utils.data.DataLoader):
         )
         audio_feats = nn.utils.rnn.pad_sequence(audio_feats, batch_first=True)
 
-        return audio_feats, transcripts, translations
+        return audio_feats, transcripts, translations, misc
