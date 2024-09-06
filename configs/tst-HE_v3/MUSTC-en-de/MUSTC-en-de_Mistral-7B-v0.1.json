@@ -1,7 +1,7 @@
 {
     "dataset": "MUSTC",
     "direction": "en-de",
-    "test_subset": "tst-HE_3.0",
+    "test_subset": "tst-HE_v3",
     "dev_subset": "dev",
     "decoder": "Mistral-7B-v0.1",
     "lr": 1e-4

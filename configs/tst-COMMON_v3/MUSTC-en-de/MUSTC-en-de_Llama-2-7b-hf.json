@@ -1,7 +1,7 @@
 {
     "dataset": "MUSTC",
     "direction": "en-de",
-    "test_subset": "tst-HE_3.0",
+    "test_subset": "tst-COMMON_v3",
     "dev_subset": "dev",
     "decoder": "Llama-2-7b-hf",
     "lr": 1e-4

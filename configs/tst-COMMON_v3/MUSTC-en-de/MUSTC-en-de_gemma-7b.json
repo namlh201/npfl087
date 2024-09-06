@@ -1,7 +1,7 @@
 {
     "dataset": "MUSTC",
     "direction": "en-de",
-    "test_subset": "tst-HE_3.0",
-    "decoder": "gemma-2-9b",
+    "test_subset": "tst-COMMON_v3",
+    "decoder": "gemma-7b",
     "lr": 1e-4
 }
