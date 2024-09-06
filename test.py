@@ -117,7 +117,7 @@ def generate_one(
     gen_config = GenerationConfig(
         num_beams=2,
         num_return_sequences=1,
-        max_length=4096,
+        max_length=2048,
         do_sample=True,
         # repetition_penalty=2.5, 
         # length_penalty=1.0, 
@@ -266,7 +266,7 @@ def main(args: argparse.Namespace, config: SimpleNamespace):
     # chrf = CHRF()
     # ter = TER()
 
-    i = 0
+    # i = 0
 
     res_dir = f'res/{config.direction}'
     os.makedirs(res_dir, exist_ok=True)
@@ -274,16 +274,18 @@ def main(args: argparse.Namespace, config: SimpleNamespace):
     src_lang = config.direction.split('-')[0]
     tgt_lang = config.direction.split('-')[1]
 
-    src_f = open(os.path.join(res_dir, f'src.{src_lang}'), 'w')
-    can_f = open(os.path.join(res_dir, f'can.{tgt_lang}'), 'w')
-    hyp_f = open(os.path.join(res_dir, f'hyp.{tgt_lang}'), 'w')
-    ref_f = open(os.path.join(res_dir, f'ref.{tgt_lang}'), 'w')
+    asr_f = open(os.path.join(res_dir, f'asr.{src_lang}'), 'w')
 
-    for audio_feats, transcripts, translations, misc in tqdm(test_loader):
+    # src_f = open(os.path.join(res_dir, f'src.{src_lang}'), 'w')
+    can_f = open(os.path.join(res_dir, f'can.{tgt_lang}'), 'w')
+    # hyp_f = open(os.path.join(res_dir, f'hyp.{tgt_lang}'), 'w')
+    # ref_f = open(os.path.join(res_dir, f'ref.{tgt_lang}'), 'w')
+
+    for audio_feats, _, _, misc in tqdm(test_loader):
         # if i == 20:
         #     break
 
-        i += 1
+        # i += 1
 
         try:
             pred_transcript, candidate = generate_one(
@@ -298,6 +300,7 @@ def main(args: argparse.Namespace, config: SimpleNamespace):
             )
         except Exception as e:
             print(e)
+            pred_transcript = ['']
             candidate = ['']
 
         # score = {
@@ -326,15 +329,20 @@ def main(args: argparse.Namespace, config: SimpleNamespace):
 
         file_id = f"{misc[0]['talk_id']}-{misc[0]['chunk_id']}"
 
+        for _transcript in pred_transcript:
+            print(f'{file_id}\t{_transcript}', file=asr_f)
+
         # print(f'{file_id}\t{transcripts[0]}', file=src_f)
         for _candidate in candidate:
             print(f'{file_id}\t{_candidate}', file=can_f)
         # print(f'{file_id}\t{translations[0]}', file=ref_f)
 
-    src_f.close()
+    asr_f.close()
+
+    # src_f.close()
     can_f.close()
-    hyp_f.close()
-    ref_f.close()
+    # hyp_f.close()
+    # ref_f.close()
 
 
 if __name__ == '__main__':

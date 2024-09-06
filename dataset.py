@@ -37,15 +37,15 @@ class MUSTC(torch.utils.data.Dataset):
         audio_path = os.path.join(talk_id, file_id + self._ext_audio)
         waveform = _load_waveform(self.path, audio_path, self._SAMPLE_RATE)
 
-        if self.subset != 'test':
+        if self.subset == 'test' or 'tst' in self.subset:
+            src, tgt = '', ''
+        else:
             transcript_path = os.path.join(talk_id, file_id + self._ext_txt)
 
             with open(os.path.join(self.path, transcript_path)) as f:
                 transcripts = f.readline().strip()
 
                 src, tgt = transcripts.split('\t')
-        else:
-            src, tgt = '', ''
 
         misc = {
             'talk_id': talk_id,

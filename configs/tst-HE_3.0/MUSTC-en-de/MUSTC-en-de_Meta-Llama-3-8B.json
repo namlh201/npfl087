@@ -1,0 +1,7 @@
+{
+    "dataset": "MUSTC",
+    "direction": "en-de",
+    "test_subset": "tst-HE_3.0",
+    "decoder": "Meta-Llama-3-8B",
+    "lr": 1e-4
+}
