@@ -37,7 +37,7 @@ class DataLoader(torch.utils.data.DataLoader):
             transcripts = list(map(lambda data: data[1], batch))
             translations = list(map(lambda data: data[2], batch))
             misc = list(map(lambda data: data[3], batch))
-        elif self.dataset_name == 'iwslt':
+        elif self.dataset_name == 'IWSLT':
             waveforms = list(map(lambda data: data[0], batch))
             transcripts = list(map(lambda data: data[1], batch))
             translations = list(map(lambda data: data[2], batch))
