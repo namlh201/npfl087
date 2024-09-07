@@ -1,5 +1,6 @@
 {
     "dataset": "MUSTC",
+    "trained_dataset": "MUSTC",
     "direction": "en-de",
     "test_subset": "tst-HE_v3",
     "dev_subset": "dev",

@@ -226,7 +226,7 @@ def main(args: argparse.Namespace, config: SimpleNamespace):
 
     # IGNORE THIS PART FOR NOW
     proj_state_dict = torch.load(
-            os.path.join('models', f'{config.dataset}_{config.direction}', f'hubert_to_{config.decoder}_projection.pth'),
+            os.path.join('models', f'{config.trained_dataset}_{config.direction}', f'hubert_to_{config.decoder}_projection.pth'),
             map_location=device
         )
     
@@ -251,12 +251,12 @@ def main(args: argparse.Namespace, config: SimpleNamespace):
 
     if config.decoder == 'gpt-2':
         decoder.load_pretrained(
-            os.path.join('models', f'{config.dataset}_{config.direction}', 'decoder', f'{config.decoder}.pth'),
+            os.path.join('models', f'{config.trained_dataset}_{config.direction}', 'decoder', f'{config.decoder}.pth'),
             device=torch.device(device)
         )
     else:
         decoder.load_pretrained(
-            os.path.join('models', f'{config.dataset}_{config.direction}', 'decoder', f'{config.decoder}'),
+            os.path.join('models', f'{config.trained_dataset}_{config.direction}', 'decoder', f'{config.decoder}'),
             is_trainable=False
         )
 

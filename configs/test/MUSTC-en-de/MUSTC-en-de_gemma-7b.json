@@ -1,5 +1,6 @@
 {
     "dataset": "MUSTC",
+    "trained_dataset": "MUSTC",
     "direction": "en-de",
     "test_subset": "test",
     "decoder": "gemma-7b",

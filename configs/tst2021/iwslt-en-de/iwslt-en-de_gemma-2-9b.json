@@ -1,5 +1,6 @@
 {
     "dataset": "iwslt",
+    "trained_dataset": "MUSTC",
     "direction": "en-de",
     "test_subset": "tst2021",
     "decoder": "gemma-2-9b",
