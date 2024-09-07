@@ -1,0 +1,7 @@
+{
+    "dataset": "iwslt",
+    "direction": "en-de",
+    "test_subset": "tst2022",
+    "decoder": "gemma-7b",
+    "lr": 1e-4
+}

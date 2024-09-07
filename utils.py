@@ -8,7 +8,7 @@ from torchaudio.datasets import LIBRISPEECH
 from transformers import AutoTokenizer, GemmaTokenizer, GPT2Tokenizer, LlamaTokenizer
 
 from block import Decoder, GPT2Decoder, GemmaDecoder, LlamaDecoder, MistralDecoder
-from dataset import MUSTC
+from dataset import IWSLT, MUSTC
 
 def get_config(config_file: str) -> SimpleNamespace:
     with open(config_file) as f:
@@ -22,6 +22,10 @@ def get_dataset(name: str, direction: str, subset: str, root: str=None) -> Datas
         'MUSTC': {
             'direction': ['en-cs', 'en-vi', 'en-de', 'en-ja', 'en-zh'],
             'subset': ['train', 'dev', 'test', 'tst-COMMON_v3', 'tst-HE_v3', 'tst-COMMON_v2', 'tst-HE_v2'],
+        },
+        'iwslt': {
+            'direction': ['en-de', 'en-ja', 'en-zh'],
+            'subset': ['tst2019', 'tst2020', 'tst2021', 'tst2022'],
         },
         'LIBRISPEECH': {
             'direction': ['en-en'],
@@ -43,6 +47,8 @@ def get_dataset(name: str, direction: str, subset: str, root: str=None) -> Datas
 
     if name == 'MUSTC':
         return MUSTC(root, direction=direction, subset=subset)
+    elif name == 'iwslt':
+        return IWSLT(root, direction=direction, subset=subset)
     elif name == 'LIBRISPEECH':
         return LIBRISPEECH(root, url=subset, download=True)
 

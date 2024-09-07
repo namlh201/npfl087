@@ -1,0 +1,8 @@
+{
+    "dataset": "iwslt",
+    "direction": "en-de",
+    "test_subset": "tst2022",
+    "dev_subset": "dev",
+    "decoder": "Mistral-7B-v0.1",
+    "lr": 1e-4
+}
