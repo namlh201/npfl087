@@ -4,6 +4,8 @@ import warnings
 from types import SimpleNamespace
 warnings.filterwarnings('ignore', category=UserWarning, message='TypedStorage is deprecated')
 
+import traceback
+
 parser = argparse.ArgumentParser()
 parser.add_argument('--batch_size', default=1, type=int, help='Batch size.')
 # parser.add_argument('--epochs', default=5, type=int, help='Number of epochs.')
@@ -53,6 +55,7 @@ def generate_one(
     transcriptions = whisper_processor.batch_decode(predicted_ids, skip_special_tokens=True)
 
     inputs = translation_model_tokenizer(transcriptions, return_tensors='pt')
+    inputs = inputs.to(device)
 
     gen_config = GenerationConfig(
         num_beams=4,
@@ -186,6 +189,7 @@ def main(args: argparse.Namespace, config: SimpleNamespace):
                 # special_token_ids=(bos_tok_id, audio_tok_id, transcript_tok_id, translation_tok_id, eos_tok_id)
             )
         except Exception as e:
+            traceback.print_exc()
             print(e)
             pred_transcript = ['']
             candidate = ['']
