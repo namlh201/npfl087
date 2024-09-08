@@ -18,6 +18,7 @@ class DataLoader(torch.utils.data.DataLoader):
         # self.tokenizer = encoder.tokenizer
 
         self.dataset_name = type(dataset).__name__
+        self.feature_extractor_name = type(feature_extractor).__name__
 
         self.feature_extractor = feature_extractor
         self.sampling_rate = self.feature_extractor.sampling_rate
@@ -43,13 +44,22 @@ class DataLoader(torch.utils.data.DataLoader):
             translations = list(map(lambda data: data[2], batch))
             misc = list(map(lambda data: data[3], batch))
 
-        audio_feats = list(
-            map(
-                lambda waveform: 
-                    self.feature_extractor(waveform, sampling_rate=self.sampling_rate, return_tensors='pt').input_values.squeeze(),
-                waveforms
+        if self.feature_extractor_name == 'SeamlessM4TProcessor':
+            audio_feats = list(
+                map(
+                    lambda waveform: 
+                        self.feature_extractor(audios=waveform, sampling_rate=self.sampling_rate, return_tensors='pt').input_values.squeeze(),
+                    waveforms
+                )
             )
-        )
+        else:
+            audio_feats = list(
+                map(
+                    lambda waveform: 
+                        self.feature_extractor(waveform, sampling_rate=self.sampling_rate, return_tensors='pt').input_values.squeeze(),
+                    waveforms
+                )
+            )
         audio_feats = nn.utils.rnn.pad_sequence(audio_feats, batch_first=True)
 
         return audio_feats, transcripts, translations, misc
