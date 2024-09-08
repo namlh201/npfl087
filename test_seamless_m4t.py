@@ -41,7 +41,7 @@ def generate_one(
     seamless_processor: SeamlessM4TProcessor,
     audio_feats: torch.Tensor
 ) -> tuple[list[str], list[str]]:
-    translated_tokens = seamless_model.generate(audio_feats, tgt_lang='deu', generate_speech=False)
+    translated_tokens = seamless_model.generate(audio_feats, tgt_lang='deu')
 
     translations = seamless_processor.decode(translated_tokens[0].tolist()[0], skip_special_tokens=True)
 
