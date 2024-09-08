@@ -23,6 +23,8 @@ class DataLoader(torch.utils.data.DataLoader):
         self.feature_extractor = feature_extractor
         self.sampling_rate = self.feature_extractor.sampling_rate
 
+        print(self.feature_extractor_name)
+
         collate_fn = collate_fn if collate_fn else self.collate_fn
 
         super().__init__(dataset, batch_size, shuffle, num_workers=num_workers, collate_fn=collate_fn)
@@ -44,14 +46,22 @@ class DataLoader(torch.utils.data.DataLoader):
             translations = list(map(lambda data: data[2], batch))
             misc = list(map(lambda data: data[3], batch))
 
-        if self.feature_extractor_name == 'SeamlessM4TProcessor':
+        if self.feature_extractor_name == 'SeamlessM4TFeatureExtractor':
             audio_feats = list(
                 map(
                     lambda waveform: 
-                        self.feature_extractor(audios=waveform, sampling_rate=self.sampling_rate, return_tensors='pt').input_values.squeeze(),
+                        self.feature_extractor(waveform, sampling_rate=self.sampling_rate, return_tensors='pt').input_features.squeeze(),
                     waveforms
                 )
             )
+        elif self.feature_extractor_name == 'WhisperFeatureExtractor':
+            audio_feats = list(
+                map(
+                    lambda waveform: 
+                        self.feature_extractor(waveform, sampling_rate=self.sampling_rate, return_tensors='pt').input_features.squeeze(),
+                    waveforms
+                )
+            )    
         else:
             audio_feats = list(
                 map(

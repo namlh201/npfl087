@@ -72,6 +72,7 @@ def generate_one(
 
 def main(args: argparse.Namespace, config: SimpleNamespace):
     whisper = WhisperForConditionalGeneration.from_pretrained("openai/whisper-large-v2")
+    whisper.config.forced_decoder_ids = None
     translation_model = AutoModelForSeq2SeqLM.from_pretrained("facebook/nllb-200-3.3B")
 
     whisper_processor = WhisperProcessor.from_pretrained("openai/whisper-large-v2")
