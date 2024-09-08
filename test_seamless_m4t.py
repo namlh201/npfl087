@@ -49,7 +49,7 @@ def generate_one(
 
     print(translated_tokens)
 
-    translations = seamless_processor.decode(translated_tokens[0].tolist()[0], skip_special_tokens=False)
+    translations = seamless_processor.decode(translated_tokens[0].tolist(), skip_special_tokens=False)
 
     print(translations)
 
