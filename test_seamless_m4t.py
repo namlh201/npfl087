@@ -47,11 +47,7 @@ def generate_one(
 
     translated_tokens = seamless_model.generate(audio_feats, tgt_lang='deu')
 
-    print(translated_tokens)
-
     translations = seamless_processor.decode(translated_tokens[0].tolist(), skip_special_tokens=True)
-
-    print(translations)
 
     return [translations]
 
