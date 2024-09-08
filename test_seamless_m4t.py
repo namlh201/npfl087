@@ -49,7 +49,7 @@ def generate_one(
 
 def main(args: argparse.Namespace, config: SimpleNamespace):
     seamless_model = SeamlessM4Tv2ForSpeechToText.from_pretrained("facebook/seamless-m4t-v2-large").to(device)
-    seamless_processor = SeamlessM4TProcessor.from_pretrained("facebook/seamless-m4t-v2-large").to(device)
+    seamless_processor = SeamlessM4TProcessor.from_pretrained("facebook/seamless-m4t-v2-large")
 
     # print(seamless_processor, type(seamless_processor).__name__)
 
