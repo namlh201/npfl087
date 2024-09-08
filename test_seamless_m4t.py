@@ -84,7 +84,7 @@ def main(args: argparse.Namespace, config: SimpleNamespace):
     # eos_tok_id = torch.full((args.batch_size, ), eos_tok_id).to(device)
 
     test = get_dataset(name=config.dataset, direction=config.direction, subset=config.test_subset, root=args.data_dir)
-    test_loader = DataLoader(test, seamless_processor, batch_size=args.batch_size)
+    test_loader = DataLoader(test, seamless_processor.feature_extractor, batch_size=args.batch_size)
 
     # # IGNORE THIS PART FOR NOW
     # proj_state_dict = torch.load(
