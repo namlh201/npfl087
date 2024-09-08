@@ -58,7 +58,7 @@ class DataLoader(torch.utils.data.DataLoader):
             audio_feats = list(
                 map(
                     lambda waveform: 
-                        self.feature_extractor(waveform, sampling_rate=self.sampling_rate, return_tensors='pt').input_features.squeeze(),
+                        self.feature_extractor(waveform[0], sampling_rate=self.sampling_rate, return_tensors='pt').input_features.squeeze(),
                     waveforms
                 )
             )    
