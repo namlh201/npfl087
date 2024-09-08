@@ -47,6 +47,8 @@ def generate_one(
     whisper.eval()
     translation_model.eval()
 
+    audio_feats = audio_feats.to(device)
+
     predicted_ids = whisper.generate(audio_feats)
     transcriptions = whisper_processor.batch_decode(predicted_ids, skip_special_tokens=True)
 
