@@ -60,7 +60,7 @@ def generate_one(
         max_length=2048,
         do_sample=True,
         early_stopping=True,
-        forced_bos_token_id=translation_model_tokenizer.lang_code_to_id["deu_Latn"],
+        forced_bos_token_id=translation_model_tokenizer.convert_tokens_to_ids("deu_Latn"),
     )
 
     translated_tokens = translation_model.generate(
