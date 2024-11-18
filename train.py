@@ -7,7 +7,7 @@ warnings.filterwarnings('ignore', category=UserWarning, message='TypedStorage is
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--batch_size', default=1, type=int, help='Batch size.')
-parser.add_argument('--epochs', default=5, type=int, help='Number of epochs.')
+parser.add_argument('--steps', default=100000, type=int, help='Number of steps.')
 parser.add_argument('--config', type=lambda args: args.split(','), required=True, help='Config files.')
 parser.add_argument('--data_dir', default=None, type=str, help='Data directory.')
 parser.add_argument('--checkpoints_dir', default=None, type=str, help='Pretrained models checkpoint directory.')
@@ -64,7 +64,7 @@ def train(
 
     mean_loss = 0.0
 
-    checkpoint_step = 10000
+    checkpoint_step = 10000 if num_steps == 100000 else 1000
 
     # for epoch in range(num_epochs):
     while step < num_steps:
@@ -401,7 +401,7 @@ def main(args: argparse.Namespace, config: SimpleNamespace):
         lr=config.train_params.lr,
     )
     # lr_scheduler = get_cosine_schedule_with_warmup(optimizer, 1000, args.epochs * len(train_loader))
-    lr_scheduler = get_cosine_schedule_with_warmup(optimizer, 1000, config.train_params.steps)
+    lr_scheduler = get_cosine_schedule_with_warmup(optimizer, 1000, args.steps)
 
     encoder.train()
     projection.train()
@@ -421,7 +421,7 @@ def main(args: argparse.Namespace, config: SimpleNamespace):
         train_loader=train_loader,
         dev_loader=None,
         # num_epochs=args.epochs,
-        num_steps=config.train_params.steps,
+        num_steps=args.steps,
         # special_token_ids=(bos_tok_id, audio_tok_id, transcript_tok_id, translation_tok_id, eos_tok_id),
         special_token_ids=(bos_tok_id, audio_tok_id, transcript_tok_id),
         special_tokens=(translation_tok, eos_tok)
