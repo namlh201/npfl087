@@ -23,7 +23,7 @@ class DataLoader(torch.utils.data.DataLoader):
         self.feature_extractor = feature_extractor
         self.sampling_rate = self.feature_extractor.sampling_rate
 
-        print(self.feature_extractor_name)
+        # print(self.feature_extractor_name)
 
         collate_fn = collate_fn if collate_fn else self.collate_fn
 

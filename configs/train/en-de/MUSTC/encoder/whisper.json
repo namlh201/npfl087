@@ -1,0 +1,4 @@
+{
+    "encoder": "openai/whisper-large-v3-turbo",
+    "length_adapter": true
+}

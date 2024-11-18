@@ -1,0 +1,5 @@
+{
+    "dataset": "MUSTC",
+    "direction": "en-de",
+    "train_subset": "train"
+}

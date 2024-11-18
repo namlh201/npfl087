@@ -5,14 +5,34 @@ from types import SimpleNamespace
 from torch import nn
 from torch.utils.data import Dataset
 from torchaudio.datasets import LIBRISPEECH
-from transformers import AutoTokenizer, GemmaTokenizer, GPT2Tokenizer, LlamaTokenizer
+from transformers import AutoTokenizer
 
-from block import Decoder, GPT2Decoder, GemmaDecoder, LlamaDecoder, MistralDecoder
+from block import (
+    Decoder,
+    GemmaDecoder,
+    LlamaDecoder,
+    MistralDecoder,
+    QwenDecoder
+)
+from block import (
+    Encoder,
+    HubertEncoder,
+    WhisperEncoder
+)
 from dataset import IWSLT, MUSTC
 
-def get_config(config_file: str) -> SimpleNamespace:
-    with open(config_file) as f:
-        config = SimpleNamespace(**json.load(f))
+def get_config(config_files: list[str]) -> SimpleNamespace:
+    merged_json = {}
+
+    for config_file in config_files:
+        with open(config_file) as f:
+            data = json.load(f)
+            merged_json = merged_json | data
+
+    config = json.loads(json.dumps(merged_json), object_hook=lambda item: SimpleNamespace(**item))
+
+    config.encoder_name = config.encoder.split('/')[1]
+    config.decoder_name = config.decoder.split('/')[1]
 
     return config
 
@@ -52,28 +72,38 @@ def get_dataset(name: str, direction: str, subset: str, root: str=None) -> Datas
     elif name == 'LIBRISPEECH':
         return LIBRISPEECH(root, url=subset, download=True)
 
-def get_decoder(decoder: str, vocab_size: int, init: bool=True) -> Decoder:
-    if decoder == 'gpt-2':
-        return GPT2Decoder(vocab_size)
-    elif 'gemma' in decoder:
-        return GemmaDecoder(vocab_size, decoder, init_lora=init)
+
+def get_encoder(encoder: str) -> Encoder:
+    if 'whisper' in encoder:
+        return WhisperEncoder(encoder)
+    elif 'hubert' in encoder:
+        return HubertEncoder(encoder)
+
+
+def get_decoder(decoder: str, vocab_size: int, lora_params: SimpleNamespace=None, debug=False) -> Decoder:
+    # if decoder == 'gpt-2':
+    #     return GPT2Decoder(vocab_size)
+    if 'gemma' in decoder:
+        return GemmaDecoder(vocab_size, decoder, lora_params=lora_params, debug=debug)
         # return GemmaDecoder(vocab_size, init_lora=init, mbr_decode=mbr_decode)
     elif 'llama' in decoder.lower():
-        return LlamaDecoder(vocab_size, decoder, init_lora=init)
+        return LlamaDecoder(vocab_size, decoder, lora_params=lora_params, debug=debug)
     elif 'mistral' in decoder.lower():
-        return MistralDecoder(vocab_size, decoder, init_lora=init)
+        return MistralDecoder(vocab_size, decoder, lora_params=lora_params, debug=debug)
+    elif 'qwen' in decoder.lower():
+        return QwenDecoder(vocab_size, decoder, lora_params=lora_params, debug=debug)
 
-def get_tokenizer(decoder: str='gpt-2') -> tuple[nn.Module, dict[str, int]]:
+def get_tokenizer(decoder: str) -> tuple[nn.Module, dict[str, int]]:
     SPECIAL_TOKENS = ['<|audio|>', '<|transcript|>', '<|translation|>']
 
-    if decoder == 'gpt-2':
-        tokenizer = GPT2Tokenizer.from_pretrained("openai-community/gpt2")
-    elif 'gemma' in decoder:
-        tokenizer = GemmaTokenizer.from_pretrained(f'google/{decoder}', token=os.environ['HF_TOKEN'])
-    elif 'llama' in decoder.lower():
-        tokenizer = LlamaTokenizer.from_pretrained(f'meta-llama/{decoder}', token=os.environ['HF_TOKEN'])
-    elif 'mistral' in decoder.lower():
-        tokenizer = AutoTokenizer.from_pretrained(f'mistralai/{decoder}', token=os.environ['HF_TOKEN'])
+    # if decoder == 'gpt-2':
+    #     tokenizer = GPT2Tokenizer.from_pretrained("openai-community/gpt2")
+    # if 'gemma' in decoder:
+    #     tokenizer = GemmaTokenizer.from_pretrained(decoder, token=os.environ['HF_TOKEN'])
+    # elif 'llama' in decoder.lower():
+    #     tokenizer = LlamaTokenizer.from_pretrained(decoder, token=os.environ['HF_TOKEN'])
+    # elif 'mistral' in decoder.lower():
+    tokenizer = AutoTokenizer.from_pretrained(decoder, add_bos_token=False, token=os.environ['HF_TOKEN'])
 
     tokenizer.add_special_tokens({
         # 'unk_token': '<|endoftext|>',
@@ -89,6 +119,10 @@ def get_tokenizer(decoder: str='gpt-2') -> tuple[nn.Module, dict[str, int]]:
 
     added_vocab = tokenizer.get_added_vocab()
 
+    # if not tokenizer.pad_token_id:
+    #     tokenizer.pad_token = tokenizer.eos_token
+    #     # tokenizer.pad_token_id = tokenizer.eos_token_id
+
     special_token_ids = {
         'unk_token': tokenizer.unk_token_id,
         'bos_token': tokenizer.bos_token_id,
@@ -99,10 +133,22 @@ def get_tokenizer(decoder: str='gpt-2') -> tuple[nn.Module, dict[str, int]]:
         'translation_token': added_vocab['<|translation|>']
     }
 
-    tokenizer.add_bos_token = False
+    special_tokens = {
+        'unk_token': tokenizer.unk_token,
+        'bos_token': tokenizer.bos_token,
+        'eos_token': tokenizer.eos_token,
+        'pad_token': tokenizer.pad_token,
+        'audio_token': '<|audio|>',
+        'transcript_token': '<|transcript|>',
+        'translation_token': '<|translation|>'
+    }
+
+    # tokenizer.padding_side = 'right'
+
+    # tokenizer.add_bos_token = False
 
     # print(special_token_ids)
 
     # print(tokenizer.get_added_vocab())
 
-    return tokenizer, special_token_ids
+    return tokenizer, special_token_ids, special_tokens
