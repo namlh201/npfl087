@@ -126,7 +126,7 @@ def train(
                 step += 1
             except Exception as e:
                 # valid_size -= 1
-                step = num_steps
+                # step = num_steps
                 # break
 
                 data_and_progress.set_description(f'loss = inf', refresh=False)
@@ -307,6 +307,8 @@ def train_step(
     labels = (-100) * (1 - label_masks) + labels_transcripts_and_translations
     labels = labels.to(device)
 
+    del label_masks
+
     # print(input_feats.shape, attention_masks.shape, labels.shape)
     # print(attention_masks)
     # print(labels)
@@ -401,7 +403,7 @@ def main(args: argparse.Namespace, config: SimpleNamespace):
         lr=config.train_params.lr,
     )
     # lr_scheduler = get_cosine_schedule_with_warmup(optimizer, 1000, args.epochs * len(train_loader))
-    lr_scheduler = get_cosine_schedule_with_warmup(optimizer, 1000, args.steps)
+    lr_scheduler = get_cosine_schedule_with_warmup(optimizer, 100, args.steps)
 
     encoder.train()
     projection.train()

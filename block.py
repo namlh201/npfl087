@@ -138,6 +138,14 @@ class LengthAdapter(nn.Module):
             padding=(0, kernel_size // 2)
         )
 
+        # self.conv = nn.Conv2d(
+        #     in_channels=1,
+        #     out_channels=1,
+        #     kernel_size=(kernel_size, kernel_size),
+        #     stride=(kernel_size, 1),
+        #     padding=(0, kernel_size // 2)
+        # )
+
     def forward(self, feats: torch.Tensor) -> torch.Tensor:
         # print(feats.shape)
 
