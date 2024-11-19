@@ -19,7 +19,7 @@ args.data_dir = args.data_dir if args.data_dir else os.getcwd() + '/data'
 os.environ['HF_HOME'] = args.checkpoints_dir if args.checkpoints_dir else os.getcwd() + '/checkpoints'
 
 from dotenv import load_dotenv
-import numpy as np
+# import numpy as np
 import torch
 from torch import nn
 import torch.utils
@@ -31,9 +31,9 @@ from tqdm import tqdm
 load_dotenv()
 logging.set_verbosity_error()
 
-from block import Encoder, Projection
+from block import LengthAdapter, Projection
 from data import DataLoader
-from utils import get_config, get_dataset, get_decoder, get_tokenizer
+from utils import get_config, get_dataset, get_decoder, get_encoder, get_tokenizer
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -191,20 +191,26 @@ def generate_one(
     return transcripts, translations
 
 def main(args: argparse.Namespace, config: SimpleNamespace):
-    feature_extractor = AutoFeatureExtractor.from_pretrained("facebook/hubert-large-ls960-ft")
+    feature_extractor = AutoFeatureExtractor.from_pretrained(config.encoder)
 
-    tokenizer, special_token_ids = get_tokenizer(config.decoder)
+    tokenizer, special_token_ids, _ = get_tokenizer(config.decoder)
     # print(tokenizer)
 
-    encoder = Encoder().to(device)
+    encoder = get_encoder(config.encoder).to(device)
     enc_hidden_size = encoder.get_hidden_size()
 
     # decoder = GPT2Decoder(len(tokenizer)).to(device)
     # decoder = get_decoder(args.decoder, len(tokenizer), init=args.init_lora, mbr_decode=False).to(device)
-    decoder = get_decoder(config.decoder, len(tokenizer), init=False).to(device)
+    decoder = get_decoder(config.decoder, len(tokenizer), debug=args.debug).to(device)
     dec_hidden_size = decoder.get_hidden_size()
 
-    projection = Projection(enc_hidden_size, dec_hidden_size).to(device)
+    if config.length_adapter:
+        projection = nn.Sequential(
+            LengthAdapter(args.batch_size),
+            Projection(enc_hidden_size, dec_hidden_size)
+        ).to(device)
+    else:
+        projection = Projection(enc_hidden_size, dec_hidden_size).to(device)
 
     bos_tok_id = special_token_ids['bos_token']
     bos_tok_id = torch.full((args.batch_size, ), bos_tok_id).to(device)
@@ -226,7 +232,7 @@ def main(args: argparse.Namespace, config: SimpleNamespace):
 
     # IGNORE THIS PART FOR NOW
     proj_state_dict = torch.load(
-            os.path.join('models', f'{config.trained_dataset}_{config.direction}', f'hubert_to_{config.decoder}_projection.pth'),
+            os.path.join('models', f'{config.direction}', f'{config.encoder_name}_to_{config.decoder_name}_projection.pth'),
             map_location=device
         )
     
@@ -249,16 +255,16 @@ def main(args: argparse.Namespace, config: SimpleNamespace):
     #     )
     # )
 
-    if config.decoder == 'gpt-2':
-        decoder.load_pretrained(
-            os.path.join('models', f'{config.trained_dataset}_{config.direction}', 'decoder', f'{config.decoder}.pth'),
-            device=torch.device(device)
-        )
-    else:
-        decoder.load_pretrained(
-            os.path.join('models', f'{config.trained_dataset}_{config.direction}', 'decoder', f'{config.decoder}'),
-            is_trainable=False
-        )
+    # if config.decoder == 'gpt-2':
+    #     decoder.load_pretrained(
+    #         os.path.join('models', f'{config.trained_dataset}_{config.direction}', 'decoder', f'{config.decoder}.pth'),
+    #         device=torch.device(device)
+    #     )
+    # else:
+    decoder.load_pretrained(
+        os.path.join('models', f'{config.direction}', 'decoder', f'{config.decoder_name}'),
+        is_trainable=False
+    )
 
     print(decoder)
 
