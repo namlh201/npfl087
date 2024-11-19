@@ -401,7 +401,7 @@ def main(args: argparse.Namespace, config: SimpleNamespace):
     # lr_scheduler = get_cosine_schedule_with_warmup(optimizer, 1000, args.epochs * len(train_loader))
     lr_scheduler = get_cosine_schedule_with_warmup(optimizer, 100, args.steps)
 
-    encoder.train()
+    # encoder.train()
     projection.train()
     decoder.train()
 
