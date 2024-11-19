@@ -66,8 +66,10 @@ def train(
 
     checkpoint_step = 10000 if num_steps == 100000 else 1000
 
+    done = False
+
     # for epoch in range(num_epochs):
-    while step < num_steps:
+    while not done:
         # mean_loss = 0.0
 
         # valid_size = len(train_loader)
@@ -154,6 +156,10 @@ def train(
 
                 mean_loss = 0.0
 
+            if step > num_steps:
+                done = True
+                break
+
         # os.makedirs(os.path.join('models', f'{args.dataset}_{args.direction}', f'e{epoch + 1}'), exist_ok=True)
         # os.makedirs(os.path.join('models', f'{args.dataset}_{args.direction}', f'e{epoch + 1}', 'decoder'), exist_ok=True)
 
@@ -195,8 +201,8 @@ def train_step(
     audio_feats = audio_feats.to(device)
 
     # audio_attention_masks = torch.ones_like(audio_feats).to(device)
-    audio_hidden_feats = encoder(audio_feats) #, attention_mask=audio_attention_masks)
-    audio_hidden_feats = projection(audio_hidden_feats)
+    audio_feats = encoder(audio_feats) #, attention_mask=audio_attention_masks)
+    audio_feats = projection(audio_feats)
 
     attention_masks = []
     transcripts_and_translations = []
@@ -268,7 +274,7 @@ def train_step(
     input_feats = torch.cat(
         (
             embeded_bos_token, \
-            embeded_audio_token, audio_hidden_feats, \
+            embeded_audio_token, audio_feats, \
             embeded_transcript_token, \
             embeded_transcripts_and_translations
         ),
@@ -277,30 +283,20 @@ def train_step(
     input_feats = input_feats.bfloat16() if config.decoder != 'gpt-2' else input_feats
     input_feats = input_feats.to(device)
 
+    prompt_length = embeded_bos_token.shape[1] + embeded_audio_token.shape[1] + audio_feats.shape[1] + embeded_transcript_token.shape[1]
+
     label_masks = nn.utils.rnn.pad_sequence(
-        [
-            torch.tensor(
-                [0] * (embeded_bos_token.shape[1] + embeded_audio_token.shape[1] + audio_hidden_feats.shape[1] + embeded_transcript_token.shape[1]) + attention_mask
-            ) for attention_mask in attention_masks
-        ],
+        [torch.tensor([0] * prompt_length + attention_mask) for attention_mask in attention_masks],
         batch_first=True
     ).to(device)
 
     attention_masks = nn.utils.rnn.pad_sequence(
-        [
-            torch.tensor(
-                [1] * (embeded_bos_token.shape[1] + embeded_audio_token.shape[1] + audio_hidden_feats.shape[1] + embeded_transcript_token.shape[1]) + attention_mask
-            ) for attention_mask in attention_masks
-        ],
+        [torch.tensor([1] * prompt_length + attention_mask) for attention_mask in attention_masks],
         batch_first=True
     ).to(device)
 
     labels_transcripts_and_translations = nn.utils.rnn.pad_sequence(
-        [
-            torch.tensor(
-                [0] * (embeded_bos_token.shape[1] + embeded_audio_token.shape[1] + audio_hidden_feats.shape[1] + embeded_transcript_token.shape[1]) + merged
-            ) for merged in transcripts_and_translations
-        ],
+        [torch.tensor([0] * prompt_length + merged) for merged in transcripts_and_translations],
         batch_first=True
     ).to(device)
 
@@ -329,15 +325,15 @@ def train_step(
     # translation_attention_masks = torch.tensor(translation_attention_masks).view((args.batch_size, -1)).to(device)
     # translation_labels = torch.tensor(translation_labels).view((args.batch_size, -1)).to(device)
 
-    translation_output = decoder(
+    output = decoder(
         inputs_embeds=input_feats,
         attention_mask=attention_masks,
         labels=labels
     )
 
-    translation_loss = translation_output.loss
+    loss = output.loss
 
-    loss = translation_loss
+    # loss = translation_loss
 
     # beg = embeded_bos_token.shape[1] + embeded_audio_token.shape[1] + audio_hidden_feats.shape[1] + embeded_transcript_token.shape[1]
 
