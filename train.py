@@ -454,7 +454,8 @@ if __name__ == '__main__':
         name=f'{config.encoder_name}_{config.decoder_name}_{now}'
     )
 
-    # print(args)
-    # print(config)
+    if args.debug:
+        print(args)
+        print(config)
 
     main(args, config)
