@@ -7,7 +7,7 @@ warnings.filterwarnings('ignore', category=UserWarning, message='TypedStorage is
 parser = argparse.ArgumentParser()
 parser.add_argument('--batch_size', default=1, type=int, help='Batch size.')
 # parser.add_argument('--epochs', default=5, type=int, help='Number of epochs.')
-parser.add_argument('--config', type=str, required=True, help='Config file.')
+parser.add_argument('--config', type=lambda args: args.split(','), required=True, help='Config files.')
 parser.add_argument('--data_dir', default=None, type=str, help='Data directory.')
 parser.add_argument('--checkpoints_dir', default=None, type=str, help='Pretrained models checkpoint directory.')
 parser.add_argument('--debug', default=False, action='store_true', help='Debug.')
