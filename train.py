@@ -352,7 +352,7 @@ def main(args: argparse.Namespace, config: SimpleNamespace):
     encoder = get_encoder(config.encoder).to(device)
     enc_hidden_size = encoder.get_hidden_size()
 
-    decoder = get_decoder(config.decoder, len(tokenizer), lora_params=config.lora_params).to(device)
+    decoder = get_decoder(config.decoder, len(tokenizer), lora_params=config.lora_params, debug=args.debug).to(device)
     dec_hidden_size = decoder.get_hidden_size()
 
     if config.length_adapter:
