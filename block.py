@@ -46,10 +46,10 @@ class Encoder(nn.Module):
 class HubertEncoder(Encoder):
     # device = torch.device(device)
 
-    def __init__(self, model_name: str, **kwargs):
+    def __init__(self, model_name: str):
         super().__init__()
 
-        self.encoder = HubertForCTC.from_pretrained(model_name, attn_implementation="sdpa", **kwargs)
+        self.encoder = HubertForCTC.from_pretrained(model_name, attn_implementation="sdpa")
 
         for params in self.encoder.parameters():
             params.requires_grad = False
@@ -106,10 +106,10 @@ class HubertEncoder(Encoder):
         return hidden
 
 class WhisperEncoder(Encoder):
-    def __init__(self, model_name: str, **kwargs):
+    def __init__(self, model_name: str):
         super().__init__()
 
-        self.encoder = WhisperModel.from_pretrained(model_name, attn_implementation="sdpa", **kwargs)
+        self.encoder = WhisperModel.from_pretrained(model_name, attn_implementation="sdpa")
         self.encoder = self.encoder.get_encoder()
 
     def get_hidden_size(self) -> int:
@@ -231,7 +231,7 @@ class Decoder(nn.Module):
         pass
 
 class GemmaDecoder(Decoder):
-    def __init__(self, vocab_size: int, model_name: str, lora_params: SimpleNamespace=None, debug=False, **kwargs):
+    def __init__(self, vocab_size: int, model_name: str, lora_params: SimpleNamespace=None, debug=False):
         super().__init__(vocab_size)
 
         # self.vocab_size = vocab_size
@@ -258,8 +258,7 @@ class GemmaDecoder(Decoder):
                 # quantization_config=self.bnb_config,
                 # device_map={"":0},
                 # token=os.environ['HF_TOKEN'],
-                **self.common_config,
-                **kwargs
+                **self.common_config
             )
         else:
             self.decoder = GemmaForCausalLM.from_pretrained(
@@ -268,8 +267,7 @@ class GemmaDecoder(Decoder):
                 # quantization_config=self.bnb_config,
                 # device_map={"":0},
                 # token=os.environ['HF_TOKEN'],
-                **self.common_config,
-                **kwargs
+                **self.common_config
             )
 
         self.decoder.resize_token_embeddings(self.vocab_size)
@@ -322,7 +320,7 @@ class GemmaDecoder(Decoder):
         self.decoder = PeftModel.from_pretrained(self.decoder, model_dir_path, is_trainable=is_trainable)
 
 class LlamaDecoder(Decoder):
-    def __init__(self, vocab_size: int, model_name: str, lora_params: SimpleNamespace=None, debug=False, **kwargs):
+    def __init__(self, vocab_size: int, model_name: str, lora_params: SimpleNamespace=None, debug=False):
         super().__init__(vocab_size)
 
         # self.vocab_size = vocab_size
@@ -348,8 +346,7 @@ class LlamaDecoder(Decoder):
             # quantization_config=self.bnb_config,
             # device_map={"":0},
             # token=os.environ['HF_TOKEN'],
-            **self.common_config,
-            **kwargs
+            **self.common_config
         )
 
         self.decoder.resize_token_embeddings(self.vocab_size)
@@ -400,7 +397,7 @@ class LlamaDecoder(Decoder):
         self.decoder = PeftModel.from_pretrained(self.decoder, model_dir_path, is_trainable=is_trainable)
 
 class MistralDecoder(Decoder):
-    def __init__(self, vocab_size: int, model_name: str, lora_params: SimpleNamespace=None, debug=False, **kwargs):
+    def __init__(self, vocab_size: int, model_name: str, lora_params: SimpleNamespace=None, debug=False):
         super().__init__(vocab_size)
 
         # self.vocab_size = vocab_size
@@ -426,8 +423,7 @@ class MistralDecoder(Decoder):
             # quantization_config=self.bnb_config,
             # device_map={"":0},
             # token=os.environ['HF_TOKEN'],
-            **self.common_config,
-            **kwargs
+            **self.common_config
         )
 
         self.decoder.resize_token_embeddings(self.vocab_size)
@@ -479,7 +475,7 @@ class MistralDecoder(Decoder):
 
 
 class QwenDecoder(Decoder):
-    def __init__(self, vocab_size: int, model_name: str, lora_params: SimpleNamespace=None, debug=False, **kwargs):
+    def __init__(self, vocab_size: int, model_name: str, lora_params: SimpleNamespace=None, debug=False):
         super().__init__(vocab_size)
 
         # self.vocab_size = vocab_size
@@ -505,8 +501,7 @@ class QwenDecoder(Decoder):
             # quantization_config=self.bnb_config,
             # device_map={"":0},
             # token=os.environ['HF_TOKEN'],
-            **self.common_config,
-            **kwargs
+            **self.common_config
         )
 
         self.decoder.resize_token_embeddings(self.vocab_size)
