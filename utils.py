@@ -73,27 +73,27 @@ def get_dataset(name: str, direction: str, subset: str, root: str=None) -> Datas
         return LIBRISPEECH(root, url=subset, download=True)
 
 
-def get_encoder(encoder: str) -> Encoder:
+def get_encoder(encoder: str, **kwargs) -> Encoder:
     if 'whisper' in encoder:
-        return WhisperEncoder(encoder)
+        return WhisperEncoder(encoder, **kwargs)
     elif 'hubert' in encoder:
-        return HubertEncoder(encoder)
+        return HubertEncoder(encoder, **kwargs)
 
 
-def get_decoder(decoder: str, vocab_size: int, lora_params: SimpleNamespace=None, debug=False) -> Decoder:
+def get_decoder(decoder: str, vocab_size: int, lora_params: SimpleNamespace=None, debug=False, **kwargs) -> Decoder:
     # if decoder == 'gpt-2':
     #     return GPT2Decoder(vocab_size)
     if 'gemma' in decoder:
-        return GemmaDecoder(vocab_size, decoder, lora_params=lora_params, debug=debug)
+        return GemmaDecoder(vocab_size, decoder, lora_params=lora_params, debug=debug, **kwargs)
         # return GemmaDecoder(vocab_size, init_lora=init, mbr_decode=mbr_decode)
     elif 'llama' in decoder.lower():
-        return LlamaDecoder(vocab_size, decoder, lora_params=lora_params, debug=debug)
+        return LlamaDecoder(vocab_size, decoder, lora_params=lora_params, debug=debug, **kwargs)
     elif 'mistral' in decoder.lower():
-        return MistralDecoder(vocab_size, decoder, lora_params=lora_params, debug=debug)
+        return MistralDecoder(vocab_size, decoder, lora_params=lora_params, debug=debug, **kwargs)
     elif 'qwen' in decoder.lower():
-        return QwenDecoder(vocab_size, decoder, lora_params=lora_params, debug=debug)
+        return QwenDecoder(vocab_size, decoder, lora_params=lora_params, debug=debug, **kwargs)
 
-def get_tokenizer(decoder: str) -> tuple[nn.Module, dict[str, int]]:
+def get_tokenizer(decoder: str, **kwargs) -> tuple[nn.Module, dict[str, int]]:
     SPECIAL_TOKENS = ['<|audio|>', '<|transcript|>', '<|translation|>']
 
     # if decoder == 'gpt-2':
@@ -103,7 +103,7 @@ def get_tokenizer(decoder: str) -> tuple[nn.Module, dict[str, int]]:
     # elif 'llama' in decoder.lower():
     #     tokenizer = LlamaTokenizer.from_pretrained(decoder, token=os.environ['HF_TOKEN'])
     # elif 'mistral' in decoder.lower():
-    tokenizer = AutoTokenizer.from_pretrained(decoder, add_bos_token=False, token=os.environ['HF_TOKEN'])
+    tokenizer = AutoTokenizer.from_pretrained(decoder, add_bos_token=False, token=os.environ['HF_TOKEN'], **kwargs)
 
     tokenizer.add_special_tokens({
         # 'unk_token': '<|endoftext|>',

@@ -344,15 +344,15 @@ def train_step(
     return loss
 
 def main(args: argparse.Namespace, config: SimpleNamespace):
-    feature_extractor = AutoFeatureExtractor.from_pretrained(config.encoder)
+    feature_extractor = AutoFeatureExtractor.from_pretrained(config.encoder, local_files_only=True)
 
-    tokenizer, special_token_ids, special_tokens = get_tokenizer(config.decoder)
+    tokenizer, special_token_ids, special_tokens = get_tokenizer(config.decoder, local_files_only=True)
     # print(tokenizer)
 
-    encoder = get_encoder(config.encoder).to(device)
+    encoder = get_encoder(config.encoder, local_files_only=True).to(device)
     enc_hidden_size = encoder.get_hidden_size()
 
-    decoder = get_decoder(config.decoder, len(tokenizer), lora_params=config.lora_params, debug=args.debug).to(device)
+    decoder = get_decoder(config.decoder, len(tokenizer), lora_params=config.lora_params, debug=args.debug, local_files_only=True).to(device)
     dec_hidden_size = decoder.get_hidden_size()
 
     if config.length_adapter:
