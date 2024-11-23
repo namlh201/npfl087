@@ -64,7 +64,7 @@ def train(
 
     mean_loss = 0.0
 
-    checkpoint_step = 10000 if num_steps == 100000 else 1000
+    checkpoint_step = 1000
 
     done = False
 
