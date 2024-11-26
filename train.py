@@ -436,7 +436,7 @@ def main(args: argparse.Namespace, config: SimpleNamespace):
     #     )
     # else:
     decoder.save_pretrained(
-        os.path.join('models', f'{config.direction}', 'decoder', f'{config.decoder_name}')
+        os.path.join('models', f'{config.direction}', 'decoder', f'{config.encoder_name}_{config.decoder_name}')
     )
 
 if __name__ == '__main__':

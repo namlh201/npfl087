@@ -60,9 +60,9 @@ def generate_one(
 
     # print(audio_feats.shape)
 
-    audio_hidden_feats = encoder(audio_feats)
+    audio_feats = encoder(audio_feats)
     # print(audio_hidden_feats.shape)
-    audio_hidden_feats = projection(audio_hidden_feats)
+    audio_feats = projection(audio_feats)
     # print(audio_hidden_feats.shape)
 
     # encoded_transcripts = list(
@@ -98,7 +98,7 @@ def generate_one(
     input_feats = torch.cat(
         (
             embeded_bos_token, \
-            embeded_audio_token, audio_hidden_feats, \
+            embeded_audio_token, audio_feats, \
             embeded_transcript_token
             # embeded_transcripts, \
             # embeded_translation_token, embeded_translations, \
@@ -262,7 +262,7 @@ def main(args: argparse.Namespace, config: SimpleNamespace):
     #     )
     # else:
     decoder.load_pretrained(
-        os.path.join('models', f'{config.direction}', 'decoder', f'{config.decoder_name}'),
+        os.path.join('models', f'{config.direction}', 'decoder', f'{config.encoder_name}_{config.decoder_name}'),
         is_trainable=False
     )
 
