@@ -1,7 +1,0 @@
-{
-    "dataset": "MUSTC",
-    "direction": "en-de",
-    "train_subset": "train",
-    "decoder": "Llama-2-7b-hf",
-    "lr": 1e-4
-}

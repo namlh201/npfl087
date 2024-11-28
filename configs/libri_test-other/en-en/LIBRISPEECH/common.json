@@ -1,0 +1,5 @@
+{
+    "dataset": "LIBRISPEECH",
+    "direction": "en-en",
+    "test_subset": "test-other"
+}

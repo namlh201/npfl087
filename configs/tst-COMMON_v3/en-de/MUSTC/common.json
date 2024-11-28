@@ -1,0 +1,5 @@
+{
+    "dataset": "MUSTC",
+    "direction": "en-de",
+    "test_subset": "tst-COMMON_v3"
+}

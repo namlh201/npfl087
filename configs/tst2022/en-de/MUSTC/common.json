@@ -1,0 +1,6 @@
+{
+    "dataset": "iwslt",
+    "trained_dataset": "MUSTC",
+    "direction": "en-de",
+    "test_subset": "tst2022"
+}

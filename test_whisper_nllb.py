@@ -76,11 +76,11 @@ def generate_one(
     return transcriptions, translations
 
 def main(args: argparse.Namespace, config: SimpleNamespace):
-    whisper = WhisperForConditionalGeneration.from_pretrained("openai/whisper-large-v2").to(device)
+    whisper = WhisperForConditionalGeneration.from_pretrained("openai/whisper-large-v3-turbo").to(device)
     whisper.config.forced_decoder_ids = None
     translation_model = AutoModelForSeq2SeqLM.from_pretrained("facebook/nllb-200-3.3B").to(device)
 
-    whisper_processor = WhisperProcessor.from_pretrained("openai/whisper-large-v2")
+    whisper_processor = WhisperProcessor.from_pretrained("openai/whisper-large-v3-turbo")
     translation_model_tokenizer = NllbTokenizer.from_pretrained("facebook/nllb-200-3.3B")
 
     # tokenizer, special_token_ids = get_tokenizer(config.decoder)

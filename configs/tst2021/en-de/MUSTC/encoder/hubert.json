@@ -1,0 +1,4 @@
+{
+    "encoder": "facebook/hubert-large-ls960-ft",
+    "length_adapter": false
+}
